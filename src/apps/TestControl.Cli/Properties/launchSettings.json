@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "TestControl.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "-v --save-logs -c ./configs/default-config.json -l /webapi-testing"
+    }
+  }
+}

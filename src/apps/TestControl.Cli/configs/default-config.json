@@ -1,0 +1,38 @@
+{
+  "apiBaseUrl": "https://localhost:5260",
+  "apiName": "Test.Alpha",
+  "databaseEngine": "PostgreSQL",
+  "databaseVersion": "db1",
+  "shutdownDelayMs": 10000,
+  "testDurationMinutes": 0,
+  "statusCheckIntervalSeconds": 30,
+  "maxAdmins": 500,
+  "warmupCycles": 50,
+  "adminGrowth": {
+    "initialAdminCount": 200,
+    "initialOrgCount": 1,
+    "initialParentOrgCount": 1,
+    "initialWorkerCountPerOrg": 2,
+    "adminGrowthPerAdmin": 1
+  },
+  "adminReporting": {
+    "reportsToRunPerCycle": 2
+  },
+  "frequencyControl": {
+    "adminGrowthCycleSeconds": 3,
+    "adminQueries": {
+      "initialFrequencySeconds": 10,
+      "minFrequencySeconds": 1,
+      "maxTimeToMinFrequencyMinutes": 2
+    },
+    "transactionProcessing": {
+      "initialFrequencySeconds": 15,
+      "minFrequencySeconds": 5,
+      "maxTimeToMinFrequencyMinutes": 5
+    }
+  },
+  "failureHandling": {
+    "periodAverageResponseTime": 100,
+    "averageResponseTimeThresholdMs": 200
+  }
+}

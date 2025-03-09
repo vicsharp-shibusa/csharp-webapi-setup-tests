@@ -1,0 +1,37 @@
+{
+  "ApiBaseUrl": "http://production:9000",
+  "ApiName": "Test.Gamma",
+  "DatabaseEngine": "MySQL",
+  "DatabaseVersion": "db3",
+  "ShutdownDelayMs": 3000,
+  "TestDurationMinutes": 10,
+  "MaxAdmins": 2000,
+  "WarmupCycles": 25,
+  "AdminGrowth": {
+    "InitialAdminCount": 5,
+    "InitialOrgCount": 4,
+    "InitialParentOrgCount": 3,
+    "InitialWorkerCountPerOrg": 10,
+    "AdminGrowthPerAdmin": 3
+  },
+  "AdminReporting": {
+    "ReportsToRunPerCycle": 5
+  },
+  "FrequencyControl": {
+    "AdminGrowthCycleSeconds": 40,
+    "AdminQueries": {
+      "InitialFrequencySeconds": 60,
+      "MinFrequencySeconds": 15,
+      "MaxTimeToMinFrequencyMinutes": 20
+    },
+    "TransactionProcessing": {
+      "InitialFrequencySeconds": 90,
+      "MinFrequencySeconds": 20,
+      "MaxTimeToMinFrequencyMinutes": 25
+    }
+  },
+  "FailureHandling": {
+    "PeriodAverageResponseTime": 75,
+    "AverageResponseTimeThresholdMs": 750
+  }
+}
