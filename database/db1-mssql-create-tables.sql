@@ -1,34 +1,43 @@
-CREATE TABLE CustomerOrganizations (
-    CustomerOrganizationId UNIQUEIDENTIFIER PRIMARY KEY,
+CREATE TABLE Organizations (
+    OrganizationId UNIQUEIDENTIFIER PRIMARY KEY,
     Name NVARCHAR(255) NOT NULL,
-    ParentCustomerOrganizationId UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES CustomerOrganizations(CustomerOrganizationId) ON DELETE SET NULL,
-    CreatedAt DATETIME DEFAULT GETDATE()
-);  
+    ParentOrganizationId UNIQUEIDENTIFIER NULL,
+    CreatedAt DATETIME2 DEFAULT (GETUTCDATE()),
+    CONSTRAINT FK_Organizations_ParentOrganizationId FOREIGN KEY (ParentOrganizationId) 
+        REFERENCES Organizations(OrganizationId)
+);
 
 CREATE TABLE Users (
     UserId UNIQUEIDENTIFIER PRIMARY KEY,
     Name NVARCHAR(255) NOT NULL,
-    Email NVARCHAR(255) UNIQUE NOT NULL,
-    CreatedAt DATETIME DEFAULT GETDATE()
+    Email NVARCHAR(255) NOT NULL UNIQUE,
+    CreatedAt DATETIME2 DEFAULT (GETUTCDATE())
 );
 
-CREATE TABLE CustomerOrganizationUser (
-    CustomerOrganizationId UNIQUEIDENTIFIER NOT NULL,
+CREATE TABLE OrganizationUser (
+    OrganizationId UNIQUEIDENTIFIER NOT NULL,
     UserId UNIQUEIDENTIFIER NOT NULL,
     Role NVARCHAR(50) NOT NULL,
-    JoinedAt DATETIME DEFAULT GETDATE(),
-    PRIMARY KEY (CustomerOrganizationId, UserId),
-    FOREIGN KEY (CustomerOrganizationId) REFERENCES CustomerOrganizations(CustomerOrganizationId) ON DELETE CASCADE,
-    FOREIGN KEY (UserId) REFERENCES Users(UserId) ON DELETE CASCADE
+    JoinedAt DATETIME2 DEFAULT (GETUTCDATE()),
+    PRIMARY KEY (OrganizationId, UserId),
+    CONSTRAINT FK_OrganizationUser_OrganizationId FOREIGN KEY (OrganizationId) 
+        REFERENCES Organizations(OrganizationId),
+    CONSTRAINT FK_OrganizationUser_UserId FOREIGN KEY (UserId) 
+        REFERENCES Users(UserId)
 );
 
 CREATE TABLE Transactions (
     TransactionId UNIQUEIDENTIFIER PRIMARY KEY,
-    UserId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES Users(UserId),
-    CustomerOrganizationId UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES CustomerOrganizations(CustomerOrganizationId),
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    OrganizationId UNIQUEIDENTIFIER NOT NULL,
     TransactionType NVARCHAR(50) NOT NULL,
-    Amount DECIMAL(18,2) NULL,
+    Account NVARCHAR(50) NOT NULL,
+    Amount DECIMAL(18,2) NOT NULL,
     Status NVARCHAR(50) NOT NULL DEFAULT 'PENDING',
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    ProcessedAt DATETIME NULL
+    CreatedAt DATETIME2 DEFAULT (GETUTCDATE()),
+    ProcessedAt DATETIME2 NULL,
+    CONSTRAINT FK_Transactions_UserId FOREIGN KEY (UserId) 
+        REFERENCES Users(UserId),
+    CONSTRAINT FK_Transactions_OrganizationId FOREIGN KEY (OrganizationId) 
+        REFERENCES Organizations(OrganizationId)
 );
