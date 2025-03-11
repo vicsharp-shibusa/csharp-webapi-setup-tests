@@ -12,13 +12,13 @@ public sealed class Admin
     private readonly HttpClient _httpClient;
     private readonly TestConfig _config;
     private readonly MessageHandler _messageHandler;
-    private readonly CancellationToken _cancellationToken;
+    private readonly CancellationTokenSource _cts;
+    private readonly CancellationToken _linkedToken;
     private bool _isActive = false;
     private Collection<Guid> _orgIds = [];
     private Collection<Guid> _workerIds = [];
     private readonly System.Timers.Timer _queryTimer;
     private readonly Lock _timerLock = new();
-    private double _minQueryInterval;
 
     public Admin(HttpClient httpClient, TestConfig config, MessageHandler messageHandler, CancellationToken cancellationToken)
     {
@@ -26,13 +26,13 @@ public sealed class Admin
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _messageHandler = messageHandler;
-        _cancellationToken = cancellationToken;
+        _cts = new CancellationTokenSource();
+        _linkedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token).Token;
 
-        _minQueryInterval = Math.Max(0D, TimeSpan.FromSeconds(_config.FrequencyControl.AdminQueries.MinFrequencySeconds).TotalMilliseconds);
         // Initialize the timer
         _queryTimer = new System.Timers.Timer
         {
-            Interval = TimeSpan.FromSeconds(_config.FrequencyControl.AdminQueries.InitialFrequencySeconds).TotalMilliseconds,
+            Interval = TimeSpan.FromSeconds(_config.Admins.AdminQueryRoc.InitialFrequencySeconds).TotalMilliseconds,
             AutoReset = true
         };
         _queryTimer.Elapsed += async (sender, e) => await RunQueriesAsync();
@@ -42,13 +42,13 @@ public sealed class Admin
     {
         var usersToAdd = new Collection<User>();
 
-        var totalTime = TimeSpan.FromSeconds(_config.FrequencyControl.AdminGrowthCycleSeconds);
+        var totalTime = TimeSpan.FromSeconds(_config.Admins.AdminGrowthCycleTimeLimitSeconds);
         var startTime = DateTime.Now;
 
         var self = TestDataCreationService.CreateUser(role: "Admin");
 
-        var parentOrgs = new Organization[_config.AdminGrowth.InitialParentOrgCount];
-        for (int i = 0; i < _config.AdminGrowth.InitialParentOrgCount; i++)
+        var parentOrgs = new Organization[_config.Admins.InitialParentOrgsPerAdmin];
+        for (int i = 0; i < _config.Admins.InitialParentOrgsPerAdmin; i++)
         {
             parentOrgs[i] = TestDataCreationService.CreateOrg(null);
             _orgIds.Add(parentOrgs[i].OrganizationId);
@@ -57,13 +57,13 @@ public sealed class Admin
 
         foreach (var parentOrg in parentOrgs)
         {
-            for (int i = 0; i < _config.AdminGrowth.InitialOrgCount; i++)
+            for (int i = 0; i < _config.Admins.InitialOrgsPerParent; i++)
             {
                 var childOrg = TestDataCreationService.CreateOrg(parentOrg);
                 _orgIds.Add(childOrg.OrganizationId);
                 usersToAdd.Add(self.CloneForOrgAndRole(childOrg, "Admin"));
 
-                for (int j = 0; j < _config.AdminGrowth.InitialWorkerCountPerOrg; j++)
+                for (int j = 0; j < _config.Admins.InitialWorkersPerOrg; j++)
                 {
                     var worker = TestDataCreationService.CreateUser(childOrg, "Worker");
                     usersToAdd.Add(worker);
@@ -79,13 +79,13 @@ public sealed class Admin
             var apiResponseTimer = Stopwatch.StartNew();
             if (timeLeft > TimeSpan.Zero)
             {
-                var timeBuffer = TimeSpan.FromMilliseconds(_config.FailureHandling.AverageResponseTimeThresholdMs);
+                var timeBuffer = TimeSpan.FromMilliseconds(_config.ResponseThreshold.AverageResponseTimeThresholdMs);
                 foreach (var user in usersToAdd)
                 {
-                    if (_cancellationToken.IsCancellationRequested)
+                    if (_linkedToken.IsCancellationRequested)
                         break;
 
-                    var response = await _httpClient.PostAsJsonAsync("api/user", user, _cancellationToken);
+                    var response = await _httpClient.PostAsJsonAsync("api/user", user, _linkedToken);
                     response.EnsureSuccessStatusCode();
 
                     if (divisor == 0)
@@ -119,15 +119,16 @@ public sealed class Admin
                 // If time has already exceeded, proceed without delays
                 foreach (var user in usersToAdd)
                 {
-                    var response = await _httpClient.PostAsJsonAsync("api/user", user, _cancellationToken);
+                    var response = await _httpClient.PostAsJsonAsync("api/user", user, _linkedToken);
                     response.EnsureSuccessStatusCode();
                 }
             }
+
             /*
              * Stop the test if this work took too long.
              */
             apiResponseTimer.Stop();
-            if (apiResponseTimer.Elapsed.TotalSeconds > _config.FrequencyControl.AdminGrowthCycleSeconds)
+            if (apiResponseTimer.Elapsed.TotalSeconds > _config.Admins.AdminGrowthCycleTimeLimitSeconds)
             {
                 _messageHandler(new MessageToControlProgram
                 {
@@ -141,6 +142,19 @@ public sealed class Admin
             }
         }
 
+        if (DateTime.Now - startTime > totalTime)
+        {
+            _cts.Cancel();
+            _messageHandler?.Invoke(new MessageToControlProgram()
+            {
+                IsTestCancellation = true,
+                Message = $"{nameof(Admin)} could not complete initialization in allotted time.",
+                MessageLevel = MessageLevel.Critical,
+                Source = Name,
+                ThreadId = Environment.CurrentManagedThreadId
+            });
+        }
+
         _workerIds = new Collection<Guid>(usersToAdd.Where(u => u.Role == "Worker").Select(x => x.UserId).ToArray());
         _isActive = true;
         _queryTimer.Start();
@@ -148,7 +162,10 @@ public sealed class Admin
 
     public async Task RunQueriesAsync()
     {
-        if (!_isActive || _cancellationToken.IsCancellationRequested || _orgIds.Count == 0)
+        var totalTime = TimeSpan.FromSeconds(_config.Admins.AdminGrowthCycleTimeLimitSeconds);
+        var startTime = DateTime.Now;
+
+        if (!_isActive || _linkedToken.IsCancellationRequested || _orgIds.Count == 0)
             return;
 
         var queries = new[]
@@ -166,16 +183,16 @@ public sealed class Admin
             $"api/user/{_workerIds[Random.Shared.Next(_workerIds.Count)]}/transactions?status=Denied"
         };
 
-        for (int i = 0; i < _config.AdminReporting.ReportsToRunPerCycle; i++)
+        for (int i = 0; i < _config.Admins.ReportsToRunPerCycle; i++)
         {
-            if (_cancellationToken.IsCancellationRequested)
+            if (_linkedToken.IsCancellationRequested)
                 break;
 
             var query = queries[Random.Shared.Next(queries.Length)];
 
             try
             {
-                var response = await _httpClient.GetAsync(query, _cancellationToken);
+                var response = await _httpClient.GetAsync(query, _linkedToken);
                 response.EnsureSuccessStatusCode();
             }
             catch (TaskCanceledException)
@@ -194,34 +211,43 @@ public sealed class Admin
                 });
             }
         }
+
+        if (DateTime.Now - startTime > totalTime)
+        {
+            _cts.Cancel();
+            _messageHandler?.Invoke(new MessageToControlProgram()
+            {
+                IsTestCancellation = true,
+                Message = $"{nameof(Admin)} could not complete queries in allotted time.",
+                MessageLevel = MessageLevel.Critical,
+                Source = Name,
+                ThreadId = Environment.CurrentManagedThreadId
+            });
+        }
     }
 
-    /// <summary>
-    /// Decreases the query timer interval by a specified factor, compressing the query frequency.
-    /// </summary>
-    /// <param name="decrementFactor">A value between 0 and 1 to reduce the interval (e.g., 0.9 for a 10% reduction).</param>
-    public void DecreaseQueryInterval(double decrementFactor)
+    public void DecreaseQueryInterval()
     {
-        if (decrementFactor <= 0 || decrementFactor > 1)
-        {
-            throw new ArgumentException("Decrement factor must be between 0 and 1.", nameof(decrementFactor));
-        }
+        var currentInterval = _queryTimer.Interval;
+        var targetInterval = Math.Max(_config.Admins.AdminQueryRoc.MinFrequencySeconds * 1000,
+            currentInterval - _config.Admins.AdminQueryRoc.AmountToDecreaseMs);
 
+        if (targetInterval < currentInterval)
+        {
+            lock (_timerLock)
+            {
+                _queryTimer.Stop();
+                _queryTimer.Interval = targetInterval;
+                _queryTimer.Start();
+            }
+        }
+    }
+
+    public double GetCurrentQueryInterval()
+    {
         lock (_timerLock)
         {
-            // Calculate the new interval by reducing it with the factor
-            double newInterval = _queryTimer.Interval * decrementFactor;
-
-            // Ensure it doesn't go below the minimum interval from config
-            if (newInterval < _minQueryInterval)
-            {
-                newInterval = _minQueryInterval;
-            }
-
-            // Stop the timer, update the interval, and restart it
-            _queryTimer.Stop();
-            _queryTimer.Interval = newInterval;
-            _queryTimer.Start();
+            return _queryTimer.Interval; // Return in milliseconds
         }
     }
 

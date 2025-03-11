@@ -1,38 +1,33 @@
 {
-  "apiBaseUrl": "http://localhost:5259",
-  "apiName": "Test.Alpha",
-  "databaseEngine": "PostgreSQL",
-  "databaseVersion": "db1",
-  "shutdownDelayMs": 1000,
-  "testDurationMinutes": 10,
-  "statusCheckIntervalSeconds": 17,
-  "maxAdmins": 1000,
-  "warmupCycles": 10,
-  "adminGrowth": {
-    "initialAdminCount": 10,
-    "initialOrgCount": 2,
-    "initialParentOrgCount": 1,
-    "initialWorkerCountPerOrg": 2,
-    "adminGrowthPerAdmin": 2
+  "testDurationMinutes": 0,
+  "shutdownDelayMs": 10000,
+  "warmupCycles": 500,
+  "statusCheckIntervalSeconds": 30,
+  "api": {
+    "apiBaseUrl": "https://localhost:5260",
+    "apiName": "Test.Alpha",
+    "databaseEngine": "PostgreSQL",
+    "databaseVersion": "db1"
   },
-  "adminReporting": {
-    "reportsToRunPerCycle": 1
-  },
-  "frequencyControl": {
-    "adminGrowthCycleSeconds": 20,
-    "adminQueries": {
+  "admins": {
+    "maxAdmins": 1000,
+    "initialAdmins": 1,
+    "initialOrgsPerParent": 1,
+    "initialParentOrgsPerAdmin": 1,
+    "initialWorkersPerOrg": 2,
+    "adminGrowthPerAdmin": 1,
+    "adminGrowthCycleTimeLimitSeconds": 20,
+    "adminGrowthCycleFrequencyMs": 15000,
+    "reportsToRunPerCycle": 1,
+    "adminQueryRoc": {
       "initialFrequencySeconds": 30,
-      "minFrequencySeconds": 5,
-      "maxTimeToMinFrequencyMinutes": 10
-    },
-    "transactionProcessing": {
-      "initialFrequencySeconds": 30,
-      "minFrequencySeconds": 5,
-      "maxTimeToMinFrequencyMinutes": 10
+      "minFrequencySeconds": 1,
+      "frequencyToDecreaseIntervalSeconds": 10,
+      "amountToDecreaseMs": 500
     }
   },
-  "failureHandling": {
-    "periodAverageResponseTime": 100,
+  "responseThreshold": {
+    "averageResponseTimePeriod": 100,
     "averageResponseTimeThresholdMs": 999
   }
 }

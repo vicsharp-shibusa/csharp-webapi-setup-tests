@@ -44,8 +44,8 @@ public class TestRunner : IDisposable
          * and API failure status codes.
          */
         var innerHandler = new HttpClientHandler();
-        _responseTimeHandler = new ResponseTimeHandler(_config.FailureHandling.PeriodAverageResponseTime,
-            _config.FailureHandling.AverageResponseTimeThresholdMs, _cts)
+        _responseTimeHandler = new ResponseTimeHandler(_config.ResponseThreshold.AverageResponseTimePeriod,
+            _config.ResponseThreshold.AverageResponseTimeThresholdMs, _cts)
         {
             InnerHandler = innerHandler
         };
@@ -71,18 +71,15 @@ public class TestRunner : IDisposable
             });
         };
 
-        _httpClient = new HttpClient(_responseTimeHandler) { BaseAddress = new Uri(_config.ApiBaseUrl) };
+        _httpClient = new HttpClient(_responseTimeHandler) { BaseAddress = new Uri(_config.Api.ApiBaseUrl) };
 
-        _queryTimeWindowMs = _config.FrequencyControl.AdminQueries.InitialFrequencySeconds * 1000; // Convert seconds to ms
+        _queryTimeWindowMs = _config.Admins.AdminQueryRoc.InitialFrequencySeconds * 1000; // Convert seconds to ms
         _queryTimer = new System.Timers.Timer(_queryTimeWindowMs) { AutoReset = true };
         _queryTimer.Elapsed += QueryCycleCallback;
         _statusTimer = new(_config.StatusCheckIntervalSeconds * 1_000D) { AutoReset = true };
         _statusTimer.Elapsed += StatusCycleCallback;
     }
 
-    /// <summary>
-    /// Runs the test asynchronously, managing admin creation and lifecycle.
-    /// </summary>
     public async Task RunAsync()
     {
         Communicate("Test starting");
@@ -92,12 +89,17 @@ public class TestRunner : IDisposable
 
         _statusTimer.Start();
 
-        await GrowAdminsToLimit(_config.MaxAdmins);
+        await GrowAdminsToLimit(_config.Admins.MaxAdmins);
 
-        // Run until the test duration is reached or cancelled
         try
         {
-            await Task.Delay(TimeSpan.FromMinutes(_config.TestDurationMinutes), _linkedToken);
+            System.Timers.Timer adminRocQueryTimer = new(_config.Admins.AdminQueryRoc.FrequencyToDecreaseIntervalSeconds * 1_000D) { AutoReset = true };
+            adminRocQueryTimer.Elapsed += (sender, e) => AdminRocQueryTimerCallback(sender, e);
+            adminRocQueryTimer.Start();
+
+            // Wait indefinitely until cancelled (or use TestDurationMinutes if preferred)
+            await Task.Delay(Timeout.Infinite, _linkedToken);
+            adminRocQueryTimer.Stop();
         }
         catch (OperationCanceledException)
         {
@@ -113,6 +115,16 @@ public class TestRunner : IDisposable
         {
             Stop();
         }
+    }
+
+    private void AdminRocQueryTimerCallback(object sender, ElapsedEventArgs e)
+    {
+        if (_linkedToken.IsCancellationRequested)
+            return;
+
+        Communicate("Decreasing query interval for admins.");
+
+        Parallel.ForEach(_admins, admin => admin.DecreaseQueryInterval());
     }
 
     /// <summary>
@@ -131,25 +143,27 @@ public class TestRunner : IDisposable
 
         if (_admins.Count == 0)
         {
-            for (int a = 0; a < _config.AdminGrowth.InitialAdminCount; a++)
+            for (int a = 0; a < _config.Admins.InitialAdmins; a++)
             {
                 var admin = new Admin(_httpClient, _config, _messageHandler, _linkedToken);
                 await admin.InitializeAsync();
                 _admins.Add(admin);
+                if (_admins.Count >= _config.Admins.MaxAdmins)
+                    break;
             }
         }
 
         while (_admins.Count < limit && !_linkedToken.IsCancellationRequested)
         {
-            double cycleTimeMs = _config.FrequencyControl.AdminGrowthCycleSeconds * 1000;
+            double cycleTimeMs = _config.Admins.AdminGrowthCycleFrequencyMs;
 
             // Start measuring the time for admin creation
             for (int a = 0; a < _admins.Count; a++)
             {
-                if (_linkedToken.IsCancellationRequested)
+                if (_linkedToken.IsCancellationRequested || _admins.Count >= limit)
                     break;
 
-                for (int g = 0; g < _config.AdminGrowth.AdminGrowthPerAdmin; g++)
+                for (int g = 0; g < _config.Admins.AdminGrowthPerAdmin; g++)
                 {
                     if (_linkedToken.IsCancellationRequested)
                         break;
@@ -168,7 +182,7 @@ public class TestRunner : IDisposable
                         _messageHandler(new MessageToControlProgram
                         {
                             IsTestCancellation = true,
-                            Message = $"Admin '{admin.Name}' creation took {elapsedMs} ms, exceeding cycle time of {cycleTimeMs} ms.",
+                            Message = $"Admin '{admin.Name}' creation took {elapsedMs:F2} ms, exceeding cycle time of {cycleTimeMs:F2} ms.",
                             MessageLevel = MessageLevel.Critical,
                             Source = nameof(TestRunner),
                             ThreadId = Environment.CurrentManagedThreadId
@@ -185,7 +199,7 @@ public class TestRunner : IDisposable
 
                     // Add the admin to the list after the delay
                     _admins.Add(admin);
-                    if (_admins.Count == limit)
+                    if (_admins.Count >= limit)
                         break;
                 }
             }
@@ -230,6 +244,7 @@ public class TestRunner : IDisposable
         Source = nameof(TestRunner),
         ThreadId = Environment.CurrentManagedThreadId
     });
+
 
     private void QueryCycleCallback(object sender, ElapsedEventArgs e)
     {
@@ -277,10 +292,10 @@ public class TestRunner : IDisposable
         try
         {
             var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get,
-                $"{Constants.TestUris.Status}?responseTimeThreshold={_config.FailureHandling.AverageResponseTimeThresholdMs}"));
+                $"{Constants.TestUris.Status}?responseTimeThreshold={_config.ResponseThreshold.AverageResponseTimeThresholdMs}"));
             var status = await response.Content.ReadFromJsonAsync<TestStatus>(JsonSerializerOptions.Web);
             status.MovingAvgResponseTime = _responseTimeHandler.CurrentResponseAverageMs;
-            status.ResponseTimeThreshold = _config.FailureHandling.AverageResponseTimeThresholdMs;
+            status.ResponseTimeThreshold = _config.ResponseThreshold.AverageResponseTimeThresholdMs;
             return status;
         }
         catch (TaskCanceledException)

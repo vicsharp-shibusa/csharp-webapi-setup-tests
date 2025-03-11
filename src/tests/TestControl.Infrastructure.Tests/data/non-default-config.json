@@ -1,37 +1,33 @@
 {
-  "ApiBaseUrl": "http://production:9000",
-  "ApiName": "Test.Gamma",
-  "DatabaseEngine": "MySQL",
-  "DatabaseVersion": "db3",
-  "ShutdownDelayMs": 3000,
-  "TestDurationMinutes": 10,
-  "MaxAdmins": 2000,
-  "WarmupCycles": 25,
-  "AdminGrowth": {
-    "InitialAdminCount": 5,
-    "InitialOrgCount": 4,
-    "InitialParentOrgCount": 3,
-    "InitialWorkerCountPerOrg": 10,
-    "AdminGrowthPerAdmin": 3
+  "testDurationMinutes": 120,
+  "shutdownDelayMs": 5000,
+  "warmupCycles": 100,
+  "statusCheckIntervalSeconds": 60,
+  "api": {
+    "apiBaseUrl": "http://testserver:8080",
+    "apiName": "Test.Test",
+    "databaseEngine": "MSSQL",
+    "databaseVersion": "db3"
   },
-  "AdminReporting": {
-    "ReportsToRunPerCycle": 5
-  },
-  "FrequencyControl": {
-    "AdminGrowthCycleSeconds": 40,
-    "AdminQueries": {
-      "InitialFrequencySeconds": 60,
-      "MinFrequencySeconds": 15,
-      "MaxTimeToMinFrequencyMinutes": 20
-    },
-    "TransactionProcessing": {
-      "InitialFrequencySeconds": 90,
-      "MinFrequencySeconds": 20,
-      "MaxTimeToMinFrequencyMinutes": 25
+  "admins": {
+    "maxAdmins": 500,
+    "initialAdmins": 5,
+    "initialOrgsPerParent": 3,
+    "initialParentOrgsPerAdmin": 2,
+    "initialWorkersPerOrg": 4,
+    "adminGrowthPerAdmin": 2,
+    "adminGrowthCycleTimeLimitSeconds": 30,
+    "adminGrowthCycleFrequencyMs": 20000,
+    "reportsToRunPerCycle": 5,
+    "adminQueryRoc": {
+      "initialFrequencySeconds": 60,
+      "minFrequencySeconds": 5,
+      "frequencyToDecreaseIntervalSeconds": 15,
+      "amountToDecreaseMs": 1000
     }
   },
-  "FailureHandling": {
-    "PeriodAverageResponseTime": 75,
-    "AverageResponseTimeThresholdMs": 750
+  "responseThreshold": {
+    "averageResponseTimePeriod": 50,
+    "averageResponseTimeThresholdMs": 1500
   }
 }

@@ -37,7 +37,7 @@ class Program
              * (the httpClient that comes from `CreateHttpClientForTests` below
              * has a special handler for recording response times).
              */
-            using (var initHttpClient = new HttpClient() { BaseAddress = new Uri(_config.ApiBaseUrl) })
+            using (var initHttpClient = new HttpClient() { BaseAddress = new Uri(_config.Api.ApiBaseUrl) })
             {
                 await InitializeTestEnvironment(initHttpClient);
                 await WarmupTestEnvironment(initHttpClient);
@@ -80,7 +80,7 @@ class Program
 
             if (testRunner != null)
             {
-                using var httpClient = new HttpClient { BaseAddress = new Uri(_config.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(5) };
+                using var httpClient = new HttpClient { BaseAddress = new Uri(_config.Api.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(5) };
                 try
                 {
                     status = await testRunner.GetStatusAsync(httpClient);
@@ -139,7 +139,7 @@ class Program
 
         try
         {
-            using var httpClient = new HttpClient() { BaseAddress = new Uri(_config.ApiBaseUrl) };
+            using var httpClient = new HttpClient() { BaseAddress = new Uri(_config.Api.ApiBaseUrl) };
 
             var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get,
                 Constants.TestUris.Name));
@@ -211,7 +211,7 @@ class Program
          */
         if (_logFileManager == null && _saveLogs)
         {
-            _logFileManager = new TestLogFileManager(Path.Combine("logs", _config.ApiName,
+            _logFileManager = new TestLogFileManager(Path.Combine("logs", _config.Api.ApiName,
                 DateTime.Now.ToString("yyyyMMddHHmm")));
         }
         Debug.Assert(!_saveLogs || (_saveLogs && _logFileManager != null));
@@ -220,7 +220,7 @@ class Program
          * Validate the test configuration file provided.
          */
         StringBuilder badConfigSb = new();
-        foreach (var msg in _config.GetValidationMessages())
+        foreach (var msg in _config.Api.GetValidationMessages())
         {
             badConfigSb.AppendLine($"\t{msg}");
         }
@@ -238,19 +238,19 @@ class Program
 
         if (!apiStatus.IsRunning)
         {
-            throw new Exception($"API '{_config.ApiName}' is not running.");
+            throw new Exception($"API '{_config.Api.ApiName}' is not running.");
         }
 
-        if (!apiStatus.VersionsMatch(_config.ApiName, _config.DatabaseVersion))
+        if (!apiStatus.VersionsMatch(_config.Api.ApiName, _config.Api.DatabaseVersion))
         {
             StringBuilder sb = new("API name does not match config file value.");
-            sb.Append($" Names: Local='{_config.ApiName}'; Server='{apiStatus.ServerName}'");
-            sb.Append($" DB Versions: Local: '{_config.DatabaseVersion}'; Server: '{apiStatus.DbVersion}'");
+            sb.Append($" Names: Local='{_config.Api.ApiName}'; Server='{apiStatus.ServerName}'");
+            sb.Append($" DB Versions: Local: '{_config.Api.DatabaseVersion}'; Server: '{apiStatus.DbVersion}'");
             throw new ArgumentException(sb.ToString());
         }
 
         Communicate("Starting TestControl CLI...");
-        Communicate($"Target API: {_config.ApiBaseUrl}");
+        Communicate($"Target API: {_config.Api.ApiBaseUrl}");
     }
 
     private static string GetCompletionMessage(Stopwatch timer) => $"Completed in {timer.Elapsed.TotalMilliseconds:F2} ms.";

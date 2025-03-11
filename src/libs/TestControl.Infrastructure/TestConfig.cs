@@ -3,76 +3,23 @@
 namespace TestControl.Infrastructure;
 
 /// <summary>
-/// Represents the parameters of the test being conducted.
+/// Represents the configuraiton of the test being conducted.
 /// </summary>
 public class TestConfig
 {
-    /// <summary>
-    /// Gets the base URL for the API being tested.
-    /// </summary>
-    public string ApiBaseUrl { get; init; } = "http://localhost:5259";
-    /// <summary>
-    /// Gets the expected name of the API being tested.
-    /// </summary>
-    public string ApiName { get; init; } = "Test.Alpha";
-    /// <summary>
-    /// Gets the database engine.
-    /// </summary>
-    public string DatabaseEngine { get; init; } = DbEngine.PostgreSQL.ToString();
-    /// <summary>
-    /// Gets the version of the database. Should be in format of "dbX" where X is a positive integer.
-    /// </summary>
-    public string DatabaseVersion { get; init; } = "db1";
-    /// <summary>
-    /// Gets the delay in ms when an unexpected interrupt occurs.
-    /// </summary>
-    public int ShutdownDelayMs { get; init; } = 1_000;
-    /// <summary>
-    /// Gets the total number of minutes the test can run.
-    /// </summary>
-    public int TestDurationMinutes { get; init; } = 1;
-    /// <summary>
-    /// Gets the total number of seconds in the interval between status checks.
-    /// </summary>
+    public int TestDurationMinutes { get; init; } = 0;
+    public int ShutdownDelayMs { get; init; } = 10_000;
+    public int WarmupCycles { get; init; } = 500;
     public int StatusCheckIntervalSeconds { get; init; } = 30;
-    /// <summary>
-    /// Gets the maximum number of Admin instances to be created.
-    /// </summary>
-    public int MaxAdmins { get; init; } = 1000;
-    /// <summary>
-    /// Gets the number of cycles performed for the test warmup.
-    /// </summary>
-    public int WarmupCycles { get; init; } = 10;
-    /// <summary>
-    /// Gets Admin growth configuration.
-    /// </summary>
-    public AdminGrowthConfig AdminGrowth { get; init; } = new();
-    /// <summary>
-    /// Gets configuration for the admin reporting cycle.
-    /// </summary>
-    public AdminReportingConfig AdminReporting { get; init; } = new();
-    /// <summary>
-    /// Gets frequency control values.
-    /// </summary>
-    public FrequencyControlConfig FrequencyControl { get; init; } = new();
-    /// <summary>
-    /// Gets the configuration for when to stop the test.
-    /// </summary>
-    public FailureHandlingConfig FailureHandling { get; init; } = new();
+    public ApiConfig Api { get; init; } = new();
+    public AdminConfig Admins { get; init; } = new();
+    public ResponseThresholdConfig ResponseThreshold { get; init; } = new();
 
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    /// <summary>
-    /// Loads a test configuration file into memory.
-    /// </summary>
-    /// <param name="path">The path to the configuration file.</param>
-    /// <returns>A <see cref="TestConfig"/> instance.</returns>
-    /// <exception cref="FileNotFoundException">Thrown when path is bad.</exception>
-    /// <exception cref="Exception">Thrown when file's content cannot be
-    /// serialized into a <see cref="TestConfig"/> instance.</exception>
     public static TestConfig LoadFromFile(string path)
     {
         if (!File.Exists(path))
@@ -83,183 +30,126 @@ public class TestConfig
             ?? throw new Exception("Failed to deserialize configuration.");
     }
 
-    private static string GetMissingMessage(string propertyName) =>
-        $"{propertyName} is missing, null, or invalid.";
+    public IEnumerable<string> GetValidationMessages()
+    {
+        int maxDur = 72 * 60;
+        if (TestDurationMinutes < 0)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(TestDurationMinutes), 0);
+        if (TestDurationMinutes > maxDur)
+            yield return ConfigMessageHandler.GreaterThanMessage(nameof(TestDurationMinutes), maxDur);
+        if (ShutdownDelayMs < 0)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(ShutdownDelayMs), 0);
+        if (WarmupCycles < 0)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(WarmupCycles), 0);
+        if (StatusCheckIntervalSeconds < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(StatusCheckIntervalSeconds), 1);
 
+        foreach (var item in Api.GetValidationMessages()
+            .Union(Admins.GetValidationMessages())
+            .Union(ResponseThreshold.GetValidationMessages()))
+            yield return item;
+    }
+}
+
+public class ApiConfig
+{
+    public string ApiBaseUrl { get; init; } = "https://localhost:5260";
+    public string ApiName { get; init; } = "Test.Alpha";
+    public string DatabaseEngine { get; init; } = DbEngine.PostgreSQL.ToString();
+    public string DatabaseVersion { get; init; } = "db1";
     public IEnumerable<string> GetValidationMessages()
     {
         if (string.IsNullOrWhiteSpace(ApiBaseUrl))
-            yield return GetMissingMessage(nameof(ApiBaseUrl));
+            yield return ConfigMessageHandler.GetMissingMessage(nameof(ApiBaseUrl));
         if (string.IsNullOrWhiteSpace(ApiName))
-            yield return GetMissingMessage(nameof(ApiName));
+            yield return ConfigMessageHandler.GetMissingMessage(nameof(ApiName));
         if (string.IsNullOrWhiteSpace(DatabaseEngine))
-            yield return GetMissingMessage(nameof(DatabaseEngine));
+            yield return ConfigMessageHandler.GetMissingMessage(nameof(DatabaseEngine));
         if (string.IsNullOrWhiteSpace(DatabaseVersion))
-            yield return GetMissingMessage(nameof(DatabaseVersion));
-        if (ShutdownDelayMs < 0)
-            yield return $"{nameof(ShutdownDelayMs)} cannot be less than zero.";
-        if (MaxAdmins < 1)
-            yield return $"{nameof(MaxAdmins)} cannot be less than 1.";
-        if (WarmupCycles < 0)
-            yield return $"{nameof(WarmupCycles)} cannot be less than 0.";
-
-        foreach (var item in AdminGrowth.GetValidationMessages())
-            yield return item;
-        foreach (var item in AdminReporting.GetValidationMessages())
-            yield return item;
-        foreach (var item in FrequencyControl.GetValidationMessages())
-            yield return item;
-        foreach (var item in FailureHandling.GetValidationMessages())
-            yield return item;
+            yield return ConfigMessageHandler.GetMissingMessage(nameof(DatabaseVersion));
     }
 }
 
-public class AdminGrowthConfig
+public class AdminConfig
 {
-    /// <summary>
-    /// Gets the number of admins created immediately.
-    /// </summary>
-    public int InitialAdminCount { get; init; } = 1;
-    /// <summary>
-    /// Gets the number of orgs created per admin instantiation.
-    /// </summary>
-    public int InitialOrgCount { get; init; } = 1;
-    /// <summary>
-    /// Gets the number of parent orgs created per admin instantiation.
-    /// </summary>
-    public int InitialParentOrgCount { get; init; } = 1;
-    /// <summary>
-    /// Gets the number of workers created per org (not parent orgs).
-    /// </summary>
-    public int InitialWorkerCountPerOrg { get; init; } = 2;
-    /// <summary>
-    /// Gets the number of new admins for each existing admin.
-    /// </summary>
+    public int MaxAdmins { get; init; } = 1_000;
+    public int InitialAdmins { get; init; } = 1;
+    public int InitialParentOrgsPerAdmin { get; init; } = 1;
+    public int InitialOrgsPerParent { get; init; } = 1;
+    public int InitialWorkersPerOrg { get; init; } = 2;
     public int AdminGrowthPerAdmin { get; init; } = 1;
-
-    public IEnumerable<string> GetValidationMessages()
-    {
-        if (InitialAdminCount < 1)
-            yield return $"{nameof(InitialAdminCount)} cannot be less than 1.";
-        if (InitialOrgCount < 1)
-            yield return $"{nameof(InitialOrgCount)} cannot be less than 1.";
-        if (InitialParentOrgCount < 1)
-            yield return $"{nameof(InitialParentOrgCount)} cannot be less than 1.";
-        if (InitialWorkerCountPerOrg < 1)
-            yield return $"{nameof(InitialWorkerCountPerOrg)} cannot be less than 1.";
-        if (AdminGrowthPerAdmin < 1)
-            yield return $"{nameof(AdminGrowthPerAdmin)} cannot be less than 1.";
-    }
-}
-
-public class FrequencyControlConfig
-{
-    /// <summary>
-    /// Gets the number of seconds between Admin growth spurts.
-    /// </summary>
-    public int AdminGrowthCycleSeconds { get; init; } = 20;
-    /// <summary>
-    /// Gets the rate of change for admin queries.
-    /// </summary>
-    public FrequencyRateOfChangeConfig AdminQueries { get; init; } = new();
-    /// <summary>
-    /// Gets the rate of change for user transaction processing.
-    /// </summary>
-    public FrequencyRateOfChangeConfig TransactionProcessing { get; init; } = new();
-
-    public IEnumerable<string> GetValidationMessages()
-    {
-        if (AdminGrowthCycleSeconds < 1)
-            yield return $"{nameof(AdminGrowthCycleSeconds)} cannot be less than 1.";
-
-        foreach (var item in AdminQueries.GetValidationMessages(nameof(AdminQueries)))
-            yield return item;
-
-        foreach (var item in TransactionProcessing.GetValidationMessages(nameof(TransactionProcessing)))
-            yield return item;
-    }
-}
-
-
-public class AdminReportingConfig
-{
-    /// <summary>
-    /// Gets the number of reports an Admin should run during the reporting cycle.
-    /// </summary>
+    public double AdminGrowthCycleTimeLimitSeconds { get; init; } = 20;
+    public double AdminGrowthCycleFrequencyMs { get; init; } = 15_000;
     public int ReportsToRunPerCycle { get; init; } = 1;
+    public RateOfChangeConfig AdminQueryRoc { get; init; } = new();
 
     public IEnumerable<string> GetValidationMessages()
     {
+        if (MaxAdmins < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(MaxAdmins), 1);
+        if (InitialAdmins < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(InitialAdmins), 1);
+        if (InitialOrgsPerParent < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(InitialOrgsPerParent), 1);
+        if (InitialParentOrgsPerAdmin < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(InitialParentOrgsPerAdmin), 1);
+        if (InitialWorkersPerOrg < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(InitialWorkersPerOrg), 1);
+        if (AdminGrowthPerAdmin < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(AdminGrowthPerAdmin), 1);
+        if (AdminGrowthCycleTimeLimitSeconds < 1D)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(AdminGrowthCycleTimeLimitSeconds), 1D);
+        if (AdminGrowthCycleFrequencyMs < 1D)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(AdminGrowthCycleFrequencyMs), 1D);
         if (ReportsToRunPerCycle < 1)
-            yield return $"{nameof(ReportsToRunPerCycle)} cannot be less than 1.";
-    }
-    public bool IsValid => !GetValidationMessages().Any();
-}
-
-public class TransactionProcessingConfig
-{
-    /// <summary>
-    /// Gets the number of transactions a worker should create per cycle.
-    /// </summary>
-    public int UserTransactionsToCreatePerCycle { get; init; } = 1;
-    /// <summary>
-    /// Gets the number of transactions a worker should review per cycle.
-    /// </summary>
-    public int UserTransactionsToReviewPerCycle { get; init; } = 1;
-
-    public IEnumerable<string> GetValidationMessages()
-    {
-        if (UserTransactionsToCreatePerCycle < 1)
-            yield return $"{nameof(UserTransactionsToCreatePerCycle)} cannot be less than 1.";
-        if (UserTransactionsToReviewPerCycle < 1)
-            yield return $"{nameof(UserTransactionsToReviewPerCycle)} cannot be less than 1.";
+            yield return ConfigMessageHandler.LessThanMessage(nameof(ReportsToRunPerCycle), 1);
+        foreach (var item in AdminQueryRoc.GetValidationMessages(nameof(AdminConfig)))
+            yield return item;
     }
 }
 
-public class FrequencyRateOfChangeConfig
+public class RateOfChangeConfig
 {
-    /// <summary>
-    /// Gets the initial number of seconds allotted to a cycle.
-    /// </summary>
     public int InitialFrequencySeconds { get; init; } = 30;
-    /// <summary>
-    /// Gets the smallest number of seconds allotted to a cycle.
-    /// </summary>
-    public int MinFrequencySeconds { get; init; } = 5;
-    /// <summary>
-    /// Gets the number of minutes it takes to go from the InitialFrequencySeconds to MinFrequencySeconds.
-    /// </summary>
-    public int MaxTimeToMinFrequencyMinutes { get; init; } = 10;
+    public int MinFrequencySeconds { get; init; } = 1;
+    public int FrequencyToDecreaseIntervalSeconds { get; init; } = 10;
+    public int AmountToDecreaseMs { get; init; } = 500;
 
     public IEnumerable<string> GetValidationMessages(string callerName)
     {
         if (InitialFrequencySeconds < 1)
-            yield return $"{callerName}.{nameof(InitialFrequencySeconds)} cannot be less than 1.";
+            yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(InitialFrequencySeconds)}", 1);
         if (MinFrequencySeconds < 1)
-            yield return $"{callerName}.{nameof(MinFrequencySeconds)} cannot be less than 1.";
-        if (MaxTimeToMinFrequencyMinutes < 1)
-            yield return $"{callerName}.{nameof(MaxTimeToMinFrequencyMinutes)} cannot be less than 1.";
+            yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(MinFrequencySeconds)}", 1);
+        if (FrequencyToDecreaseIntervalSeconds < 5)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(FrequencyToDecreaseIntervalSeconds), 5);
+        if (AmountToDecreaseMs < 1)
+            yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(AmountToDecreaseMs)}", 1);
     }
 }
 
-public class FailureHandlingConfig
+public class ResponseThresholdConfig
 {
-    /// <summary>
-    /// The number of items considered in the response time threshold average calculation.
-    /// </summary>
-    public int PeriodAverageResponseTime { get; init; } = 100;
-    /// <summary>
-    /// The threshold for average response time (in ms) over the specified period.
-    /// </summary>
+    public int AverageResponseTimePeriod { get; init; } = 100;
     public int AverageResponseTimeThresholdMs { get; init; } = 999;
 
     public IEnumerable<string> GetValidationMessages()
     {
-        if (PeriodAverageResponseTime < 1)
-            yield return $"{nameof(PeriodAverageResponseTime)} cannot be less than 1.";
+        if (AverageResponseTimePeriod < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(AverageResponseTimePeriod), 1);
         if (AverageResponseTimeThresholdMs < 1)
-            yield return $"{nameof(AverageResponseTimeThresholdMs)} cannot be less than 1.";
+            yield return ConfigMessageHandler.LessThanMessage(nameof(AverageResponseTimeThresholdMs), 1);
     }
 }
 
-
+file static class ConfigMessageHandler
+{
+    public static string GetMissingMessage(string propertyName) =>
+        $"{propertyName} is missing, null, or invalid.";
+    public static string LessThanMessage(string propertyName, int value) =>
+        $"{propertyName} cannot be less than {value}";
+    public static string LessThanMessage(string propertyName, double value) =>
+        $"{propertyName} cannot be less than {value:F2}";
+    public static string GreaterThanMessage(string propertyName, int value) =>
+        $"{propertyName} cannot be greater than {value}";
+}
