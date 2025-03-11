@@ -15,7 +15,7 @@ public class TestConfig
     public AdminConfig Admins { get; init; } = new();
     public ResponseThresholdConfig ResponseThreshold { get; init; } = new();
 
-    private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions()
+    private static readonly JsonSerializerOptions _serializerOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
@@ -26,7 +26,7 @@ public class TestConfig
             throw new FileNotFoundException($"Configuration file not found: {path}");
 
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<TestConfig>(json, SerializerOptions)
+        return JsonSerializer.Deserialize<TestConfig>(json, _serializerOptions)
             ?? throw new Exception("Failed to deserialize configuration.");
     }
 
@@ -78,7 +78,7 @@ public class AdminConfig
     public int InitialOrgsPerParent { get; init; } = 1;
     public int InitialWorkersPerOrg { get; init; } = 2;
     public int AdminGrowthPerAdmin { get; init; } = 1;
-    public double AdminGrowthCycleTimeLimitSeconds { get; init; } = 20;
+    public int AdminGrowthCycleTimeLimitSeconds { get; init; } = 20;
     public double AdminGrowthCycleFrequencyMs { get; init; } = 15_000;
     public int ReportsToRunPerCycle { get; init; } = 1;
     public RateOfChangeConfig AdminQueryRoc { get; init; } = new();
@@ -119,8 +119,8 @@ public class RateOfChangeConfig
     {
         if (InitialFrequencySeconds < 1)
             yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(InitialFrequencySeconds)}", 1);
-        if (MinFrequencySeconds < 1)
-            yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(MinFrequencySeconds)}", 1);
+        if (MinFrequencySeconds < 0)
+            yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(MinFrequencySeconds)}", 0);
         if (FrequencyToDecreaseIntervalSeconds < 5)
             yield return ConfigMessageHandler.LessThanMessage(nameof(FrequencyToDecreaseIntervalSeconds), 5);
         if (AmountToDecreaseMs < 1)

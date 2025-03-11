@@ -16,9 +16,9 @@ class Program
     static bool _saveLogs;
     static CancellationTokenSource _cts;
     static TestConfig _config;
-    static TestRunner testRunner;
+    static TestRunner _testRunner;
     static TestLogFileManager _logFileManager;
-    static Lock _locker = new();
+    static readonly Lock _locker = new();
 
     static async Task Main(string[] args)
     {
@@ -43,9 +43,9 @@ class Program
                 await WarmupTestEnvironment(initHttpClient);
             }
 
-            testRunner = new TestRunner(_config, MessageHandler, _cts.Token);
+            _testRunner = new TestRunner(_config, MessageHandler, _cts.Token);
 
-            await testRunner.RunAsync();
+            await _testRunner.RunAsync();
 
             _exitCode = 0;
         }
@@ -78,12 +78,12 @@ class Program
             Communicate($"[{DateTime.Now:HH:mm:ss}] Shutting down.");
             TestStatus status = null;
 
-            if (testRunner != null)
+            if (_testRunner != null)
             {
                 using var httpClient = new HttpClient { BaseAddress = new Uri(_config.Api.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(5) };
                 try
                 {
-                    status = await testRunner.GetStatusAsync(httpClient);
+                    status = await _testRunner.GetStatusAsync(httpClient);
                 }
                 catch (TaskCanceledException)
                 {
@@ -117,7 +117,7 @@ class Program
             Communicate($"[{DateTime.Now:HH:mm:ss}] Program completed in {executionTimer.Elapsed.TotalMinutes:#,##0.00} minutes with exit code {_exitCode}");
             _logFileManager?.CloseCurrentLogFile();
             _logFileManager?.Dispose();
-            testRunner?.Dispose();
+            _testRunner?.Dispose();
             _cts.Dispose();
 #if DEBUG
             Console.WriteLine("Hit ENTER to finish.");
@@ -320,6 +320,7 @@ class Program
 #if DEBUG
             Console.WriteLine(message.Exception.ToString());
 #endif
+            _cts.Cancel();
         }
         else if (_verbose)
         {
@@ -333,7 +334,7 @@ class Program
                     _ => ConsoleColor.White
                 };
 
-                Console.WriteLine($"[{message.Timestamp.ToLocalTime():HH:mm:ss}] Message from {message.Source} on thread {message.ThreadId.GetValueOrDefault()}, [{message.MessageLevel.ToString()}]: {message.Message}");
+                Console.WriteLine($"[{message.Timestamp.ToLocalTime():HH:mm:ss}] Message from {message.Source} on thread {message.ThreadId.GetValueOrDefault()}, [{message.MessageLevel}]: {message.Message}");
                 Console.ResetColor();
             }
         }
@@ -342,6 +343,9 @@ class Program
         {
             _logFileManager.WriteToLog(message);
         }
+
+        if (message.IsTestCancellation && !_cts.IsCancellationRequested)
+            _cts.Cancel();
     }
 
     private static void HandleShutdown(object sender, ConsoleCancelEventArgs e)

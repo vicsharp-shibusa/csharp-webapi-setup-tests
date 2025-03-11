@@ -63,24 +63,22 @@ Take a look at `src/apps/TestControl.Cli/configs` for examples of configuration 
 The following snippet shows the configuration elements that must align with your test api.
 
 ```json
-{
-  "apiBaseUrl": "https://localhost:5260",
-  "apiName": "Test.Alpha",
-  "databaseEngine": "PostgreSQL",
-  "databaseVersion": "db1"
-}
+  "api": {
+    "apiBaseUrl": "https://localhost:5260",
+    "apiName": "Test.Alpha",
+    "databaseEngine": "PostgreSQL",
+    "databaseVersion": "db1"
+  }
 ```
 
-The `failureHandling` section addresses the constraints for response time handling.
+The `responseThreshold` section addresses the constraints for response time handling.
 The interpretation of the json below is: _if the average response time of the last `100` calls to the test api exceeds `999` milliseconds, stop the test._
 
 ```json
-{
-  "failureHandling": {
-    "periodAverageResponseTime": 100,
+  "responseThreshold": {
+    "averageResponseTimePeriod": 100,
     "averageResponseTimeThresholdMs": 999
   }
-}
 ```
 
 I'll break down the rest of the configuration later; the above should get you started.
@@ -132,16 +130,16 @@ Up to the _first milestone_, the pace is fairly steady, but the number of `Admin
 
 #### Response Time Threshold
 
-The response time threshold is defined by the `failureHandling` section of the config:
+The response time threshold is defined by the `responseThreshold` section of the config:
 
 ```json
-"failureHandling": {
-  "periodAverageResponseTime": 100,
-  "averageResponseTimeThresholdMs": 500
-}
+  "responseThreshold": {
+    "averageResponseTimePeriod": 100,
+    "averageResponseTimeThresholdMs": 999
+  }
 ```
 
-The `averageResponseTimeThresholdMs` is the average of the most recent `periodAverageResponseTime` number of response times.
+The `averageResponseTimeThresholdMs` is the average of the most recent `averageResponseTimePeriod` number of response times.
 For example, in the example above, the average response time of the last `100` responses cannot exceed `500` milliseconds.
 
 ---

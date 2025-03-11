@@ -122,9 +122,9 @@ public class TestRunner : IDisposable
         if (_linkedToken.IsCancellationRequested)
             return;
 
-        Communicate("Decreasing query interval for admins.");
+        Communicate("Decreasing query interval and time allocation for admins.");
 
-        Parallel.ForEach(_admins, admin => admin.DecreaseQueryInterval());
+        Parallel.ForEach(_admins, admin => admin.CompressIntervals());
     }
 
     /// <summary>
@@ -206,15 +206,15 @@ public class TestRunner : IDisposable
         }
     }
 
-    private bool isStopping = false;
+    private bool _isStopping = false;
     /// <summary>
     /// Stops the test and all admin activities.
     /// </summary>
     public void Stop()
     {
-        if (!isStopping)
+        if (!_isStopping)
         {
-            isStopping = true;
+            _isStopping = true;
 
             _queryTimer.Stop();
             _statusTimer.Stop();

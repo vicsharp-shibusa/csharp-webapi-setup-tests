@@ -15,20 +15,22 @@ public sealed class Admin
     private readonly CancellationTokenSource _cts;
     private readonly CancellationToken _linkedToken;
     private bool _isActive = false;
-    private Collection<Guid> _orgIds = [];
+    private readonly Collection<Guid> _orgIds = [];
     private Collection<Guid> _workerIds = [];
     private readonly System.Timers.Timer _queryTimer;
     private readonly Lock _timerLock = new();
+    private double _adminGrowthCycleTimeLimitMs;
 
     public Admin(HttpClient httpClient, TestConfig config, MessageHandler messageHandler, CancellationToken cancellationToken)
     {
-        Name = $"{nameof(Admin)}-{Guid.NewGuid().ToString().Substring(0, 8)}";
+        Name = $"{nameof(Admin)}-{Guid.NewGuid().ToString()[..8]}";
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _messageHandler = messageHandler;
         _cts = new CancellationTokenSource();
         _linkedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token).Token;
 
+        _adminGrowthCycleTimeLimitMs = _config.Admins.AdminGrowthCycleTimeLimitSeconds * 1_000D;
         // Initialize the timer
         _queryTimer = new System.Timers.Timer
         {
@@ -42,7 +44,7 @@ public sealed class Admin
     {
         var usersToAdd = new Collection<User>();
 
-        var totalTime = TimeSpan.FromSeconds(_config.Admins.AdminGrowthCycleTimeLimitSeconds);
+        var totalTime = TimeSpan.FromMilliseconds(_adminGrowthCycleTimeLimitMs);
         var startTime = DateTime.Now;
 
         var self = TestDataCreationService.CreateUser(role: "Admin");
@@ -128,13 +130,12 @@ public sealed class Admin
              * Stop the test if this work took too long.
              */
             apiResponseTimer.Stop();
-            if (apiResponseTimer.Elapsed.TotalSeconds > _config.Admins.AdminGrowthCycleTimeLimitSeconds)
+            if (apiResponseTimer.Elapsed.TotalMilliseconds > _adminGrowthCycleTimeLimitMs)
             {
                 _messageHandler(new MessageToControlProgram
                 {
                     IsTestCancellation = true,
-                    Message = $"{nameof(Admin)} '{Name}' failed to complete initialization event within allotted time.",
-                    Exception = new Exception($"{nameof(Admin)}.{nameof(InitializeAsync)} took {apiResponseTimer.Elapsed.TotalSeconds} seconds"),
+                    Message = $"{nameof(Admin)} '{Name}' failed to complete initialization event within {_adminGrowthCycleTimeLimitMs} ms.",
                     MessageLevel = MessageLevel.Critical,
                     Source = Name,
                     ThreadId = Environment.CurrentManagedThreadId
@@ -155,17 +156,20 @@ public sealed class Admin
             });
         }
 
-        _workerIds = new Collection<Guid>(usersToAdd.Where(u => u.Role == "Worker").Select(x => x.UserId).ToArray());
-        _isActive = true;
-        _queryTimer.Start();
+        if (!_cts.IsCancellationRequested)
+        {
+            _workerIds = [.. usersToAdd.Where(u => u.Role == "Worker").Select(x => x.UserId).ToArray()];
+            _isActive = true;
+            _queryTimer.Start();
+        }
     }
 
     public async Task RunQueriesAsync()
     {
-        var totalTime = TimeSpan.FromSeconds(_config.Admins.AdminGrowthCycleTimeLimitSeconds);
+        var totalTime = TimeSpan.FromMilliseconds(_adminGrowthCycleTimeLimitMs);
         var startTime = DateTime.Now;
 
-        if (!_isActive || _linkedToken.IsCancellationRequested || _orgIds.Count == 0)
+        if (!_isActive || _linkedToken.IsCancellationRequested || _orgIds.Count == 0 || _workerIds.Count == 0)
             return;
 
         var queries = new[]
@@ -212,42 +216,45 @@ public sealed class Admin
             }
         }
 
-        if (DateTime.Now - startTime > totalTime)
+        if (DateTime.Now - startTime > totalTime && !_linkedToken.IsCancellationRequested)
         {
-            _cts.Cancel();
-            _messageHandler?.Invoke(new MessageToControlProgram()
-            {
-                IsTestCancellation = true,
-                Message = $"{nameof(Admin)} could not complete queries in allotted time.",
-                MessageLevel = MessageLevel.Critical,
-                Source = Name,
-                ThreadId = Environment.CurrentManagedThreadId
-            });
+                _messageHandler?.Invoke(new MessageToControlProgram()
+                {
+                    IsTestCancellation = true,
+                    Message = $"{nameof(Admin)} could not complete queries in allotted time: {totalTime.TotalMilliseconds:F2} ms.",
+                    MessageLevel = MessageLevel.Critical,
+                    Source = Name,
+                    ThreadId = Environment.CurrentManagedThreadId
+                });
+                _cts.Cancel();
         }
     }
 
-    public void DecreaseQueryInterval()
+    public void CompressIntervals()
     {
         var currentInterval = _queryTimer.Interval;
-        var targetInterval = Math.Max(_config.Admins.AdminQueryRoc.MinFrequencySeconds * 1000,
+        var targetInterval = Math.Max(_config.Admins.AdminQueryRoc.MinFrequencySeconds * 1_000D,
             currentInterval - _config.Admins.AdminQueryRoc.AmountToDecreaseMs);
 
-        if (targetInterval < currentInterval)
+        if (targetInterval > 0 && targetInterval < currentInterval)
         {
+            // Make the growth cycle time limit half the interval.
             lock (_timerLock)
             {
+                _adminGrowthCycleTimeLimitMs = Math.Max((double)_config.Admins.AdminQueryRoc.MinFrequencySeconds,
+                    targetInterval / 2D);
+
                 _queryTimer.Stop();
                 _queryTimer.Interval = targetInterval;
                 _queryTimer.Start();
             }
         }
-    }
-
-    public double GetCurrentQueryInterval()
-    {
-        lock (_timerLock)
+        else
         {
-            return _queryTimer.Interval; // Return in milliseconds
+            lock (_timerLock)
+            {
+                _adminGrowthCycleTimeLimitMs /= 2D;
+            }
         }
     }
 
