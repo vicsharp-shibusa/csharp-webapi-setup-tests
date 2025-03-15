@@ -1,21 +1,18 @@
 # C# WebApi Setup Tests
 
-## Current Status 2025-03-10
+## Current Status 2025-03-14
 
-**Please Note: this file is a work in progress, as is this project.**
-
-The first test architecture `Test.Alpha` and the control program, `TestControl.Cli`, are stable, but not complete.
-This first iteration focuses on configuration, control, logging, and graceful shutdown.
-Next step is the inner workings of the `Worker` class; then we'll have a legit test methinks.
+The first test architecture, `Test.Alpha` is (probably) complete and (mostly) stable. :)
+Both `Admin` and `Worker` are flushed out, but I need to do some larger-scale testing before I tackle `Test.Beta`.
 
 ## Quick Start
 
-1. Get your database sorted. See the `database/` directory in this repo.
-2. Set up your connection strings for your target api to talk to your database.
-3. Set up your environment variables.
-4. Run the target API.
+1. Get your database sorted. See the "Database" section below and the `database/` directory in this repo.
+2. Set up your connection strings for your target api to talk to your database (see below).
+3. Set up your environment variables (see below).
+4. Launch the target API.
 5. Created/edit your configuration file to align with your api. See `src/apps/TestControl.Cli/configs`.
-6. Run the CLI control program.
+6. Execute the CLI control program.
 
 ### Database
 
@@ -31,7 +28,8 @@ I separated them like I did in case I wanted to run tests without the table inde
 
 ### Connection Strings
 
-I think you can handle the connection strings for your chosen database, but there are two (2) of them: one for commands and one for queries. They use different users (see the appropriate file in the `database/` directory). You are welcome to make them the same connection string.
+I think you can handle the connection strings for your chosen database, but there are two (2) of them: one for commands and one for queries. They use different users (see the appropriate file in the `database/` directory).
+You are welcome to make them the same connection string; performance will likely degrade if you do.
 
 The `TestControl.Cli` will read a `secrets.json` file, and this is where I recommend you put your connection strings.
 Mine looks like this:
@@ -53,8 +51,8 @@ The `db1` is part of database versioning, but that's a future topic.
 ### Environment Variables
 
 The test subject api requires two environment variables: `DB_ENGINE` and `DB_VERSION`.
-These values correspond to the connection string as you might expect.
-if the valus provided to the control program via the configuration file do not align with the test api, the app will throw an exception.
+These values correspond to the connection strings as you might expect.
+if the values provided to the control program via the configuration file do not align with the test api, the app will throw an exception.
 
 ### Configuration File
 
@@ -99,34 +97,34 @@ The web apis being tested are located in the `src/hosts` directory.
 See notes on the specific tests below.
 
 The test subject apis in this repo do not use any security; there is no authorization component.
-This is by design; I didn't not want to deal with my different worker objects having to address keeping their tokens current.
+This is by design; I did not want to deal with my different worker objects having to keep their tokens current.
 A real security component would definitely change the outcomes of the test, but as long as none of the test subjects have this constraint, I believe the test remains fair.
 
-Each api has a scoped `OperationContext` because it makes sense that _something_ is scoped to the HTTP request.
+Each api has a scoped `OperationContext` because it makes sense that _something_ is scoped to the HTTP request in each of the subject test apis.
 
 ### Testing Methodology
 
-The test begins by creating `Admin`, 'Organization`, and `Worker` objects at a predictable pace.
+The test begins by creating `Admin`, `Organization`, and `Worker` objects at a predictable pace.
 On a schedule (see the configuration file), these objects are created until the limit is reached.
 This limit (the max number of `Admin` instances) is the _first milestone_.
 
 Each `Admin` and `Worker` instance has at least one internal timer on which they perform some action.
 For `Admin` objects, the `Admin` runs queries against his organizations and users.
-For `Worker` objects, they create and update `Transactions` as well as run queries.
-After the _first milestone_ is achieved, the cycle time for these timers begins to shrink.
+For `Worker` objects, they create and update `Transactions`.
+After the _first milestone_ is achieved, both the cycle time (frequency) and the allotted time for the work begins to shrink.
 
 There is no expected scenario in which any web api architecture can survive the test.
 The point is to finish the test with failure.
-There are four ways the test can end:
+There are five ways the test can end:
 
 1. The user hits CTRL-C.
-2. The response time threshold is reached.
-3. An individual `Admin` or `Worker` cycle does not complete within its allotted time.
-4. An `Exception` is thrown.
+2. The `testDurationMinutes` time limit is reached (note that a value of `0` here will cause the test to run indefinitely).
+3. The HTTP response time threshold is reached (calls to the api take longer than defined by the configuration).
+4. An individual `Admin` or `Worker` cycle does not complete within its allotted time.
+5. An `Exception` is thrown. The application has zero tolerance for exceptions.
 
 The test attempts to avoid rapid-fire calls to the API until its required as a result of interval compression.
-Up to the _first milestone_, the pace is fairly steady, but the number of `Admin` and `Worker` objects (and their workloads) are increasing according to the values in the configuration file.
-
+Up to the _first milestone_, the pace is steady, but the number of `Admin` and `Worker` objects (and their workloads) are increasing according to the values in the configuration file.
 
 #### Response Time Threshold
 
