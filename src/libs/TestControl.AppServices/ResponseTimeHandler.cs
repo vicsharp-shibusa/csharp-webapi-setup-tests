@@ -60,7 +60,7 @@ public class ResponseTimeHandler : DelegatingHandler
             MovingAverageMs = ma,
             NumberCalls = _numberCalls,
             Timestamp = ts,
-            Message = $"[{DateTime.Now:HH:mm:ss}] [{responseTimeMs:F2}] [{ma:F2}] '{request.RequestUri?.AbsoluteUri}'"
+            Message = $"[{DateTime.Now:HH:mm:ss}] [{responseTimeMs,8:F2}] [{ma,8:F2}] '{request.RequestUri?.AbsoluteUri}'"
         };
 
         if (!response.IsSuccessStatusCode) // fail if api fails

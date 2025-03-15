@@ -14,6 +14,22 @@ Both `Admin` and `Worker` are flushed out, but I need to do some larger-scale te
 5. Created/edit your configuration file to align with your api. See `src/apps/TestControl.Cli/configs`.
 6. Execute the CLI control program.
 
+### Command
+
+Here's the content of the `launchSettings.json` in my IDE.
+`-v` for verbose output, `--save-logs` for writing to the output directory specified by `-l`, and `-c` for intake of the configuration file.
+
+```json
+{
+  "profiles": {
+    "TestControl.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "-v --save-logs -c ./configs/default-config.json -l /webapi-testing"
+    }
+  }
+}
+```
+
 ### Database
 
 The `database/` directory contains scripts for both PostgreSQL and MS Sql Server. Each database has at least 3 scripts:

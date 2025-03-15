@@ -80,7 +80,7 @@ class Program
 
             if (_testRunner != null)
             {
-                using var httpClient = new HttpClient { BaseAddress = new Uri(_config.Api.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(5) };
+                using var httpClient = new HttpClient { BaseAddress = new Uri(_config.Api.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(30) };
                 try
                 {
                     status = await _testRunner.GetStatusAsync(httpClient);
@@ -327,7 +327,7 @@ class Program
         {
             lock (_locker)
             {
-                ConsoleColor color = message.MessageLevel switch
+                Console.ForegroundColor = message.MessageLevel switch
                 {
                     MessageLevel.Info => ConsoleColor.Gray,
                     MessageLevel.Warning => ConsoleColor.Yellow,
@@ -335,7 +335,7 @@ class Program
                     _ => ConsoleColor.White
                 };
 
-                Console.WriteLine($"[{message.Timestamp.ToLocalTime():HH:mm:ss}] Message from {message.Source} on thread {message.ThreadId.GetValueOrDefault()}, [{message.MessageLevel}]: {message.Message}");
+                Console.WriteLine($"[{message.Timestamp.ToLocalTime():HH:mm:ss}][{message.MessageLevel,7}] src:{message.Source}::{message.ThreadId.GetValueOrDefault(),3} : {message.Message}");
                 Console.ResetColor();
             }
         }
@@ -368,5 +368,4 @@ class Program
         _logFileManager?.CloseCurrentLogFile();
         Communicate("Shutdown complete.");
     }
-
 }

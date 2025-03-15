@@ -1,8 +1,8 @@
 {
-  "testDurationMinutes": 0,
-  "shutdownDelayMs": 10000,
-  "warmupCycles": 500,
-  "statusCheckIntervalSeconds": 30,
+  "testDurationMinutes": 60,
+  "shutdownDelayMs": 1000,
+  "warmupCycles": 5,
+  "statusCheckIntervalSeconds": 300,
   "api": {
     "apiBaseUrl": "https://localhost:5260",
     "apiName": "Test.Alpha",
@@ -10,20 +10,20 @@
     "databaseVersion": "db1"
   },
   "admins": {
-    "maxAdmins": 5,
-    "initialAdmins": 1,
+    "maxAdmins": 500,
+    "initialAdmins": 2,
     "initialOrgsPerParent": 1,
     "initialParentOrgsPerAdmin": 1,
     "initialWorkersPerOrg": 2,
     "adminGrowthPerAdmin": 2,
     "adminGrowthCycleTimeLimitSeconds": 5,
-    "adminGrowthCycleFrequencyMs": 15000,
+    "adminGrowthCycleFrequencyMs": 5000,
     "reportsToRunPerCycle": 2,
     "adminQueryRoc": {
-      "initialFrequencySeconds": 5,
+      "initialFrequencySeconds": 10,
       "minFrequencySeconds": 0,
-      "frequencyToDecreaseIntervalSeconds": 10,
-      "amountToDecreaseMs": 1000
+      "frequencyToDecreaseIntervalSeconds": 15,
+      "amountToDecreaseMs": 500
     }
   },
   "workers": {
@@ -33,7 +33,7 @@
       "initialFrequencySeconds": 5,
       "minFrequencySeconds": 0,
       "frequencyToDecreaseIntervalSeconds": 10,
-      "amountToDecreaseMs": 1000
+      "amountToDecreaseMs": 500
     }
   },
   "responseThreshold": {
