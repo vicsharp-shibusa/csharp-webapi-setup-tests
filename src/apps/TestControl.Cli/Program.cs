@@ -104,6 +104,7 @@ class Program
                     PropertyNameCaseInsensitive = true,
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
+
                 var path = Path.Combine(_logFileManager.LogsDirectory,
                     $"{_logFileManager.StartTime:yyyyMMdd}_{_logFileManager.UniqueId}_final.json");
 

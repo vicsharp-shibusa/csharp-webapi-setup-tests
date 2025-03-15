@@ -1,180 +1,161 @@
-﻿//using System.Transactions;
-//using TestControl.Infrastructure;
+﻿using System.Net.Http.Json;
+using TestControl.Infrastructure;
+using TestControl.Infrastructure.SubjectApiPublic;
 
-//namespace TestControl.AppServices.Workers;
+namespace TestControl.AppServices.Workers;
 
-//public class Worker
-//{
-//    private readonly TestConfig _config;
-//    private readonly List<Transaction> _transactions;
+public sealed class Worker
+{
+    public readonly string Name;
+    private readonly HttpClient _httpClient;
+    private readonly TestConfig _config;
+    private readonly MessageHandler _messageHandler;
+    private readonly CancellationTokenSource _cts;
+    private readonly CancellationToken _linkedToken;
+    private bool _isActive = false;
+    private readonly System.Timers.Timer _transactionTimer;
+    private double _transactionCycleTimeLimitMs;
+    private readonly Lock _timerLock = new();
+    private readonly User _user;
 
-//    public Worker(TestConfig config)
-//    {
-//        _config = config ?? throw new ArgumentNullException(nameof(config));
-//        _transactions = new List<Transaction>();
-//    }
+    public Worker(HttpClient httpClient, TestConfig config, MessageHandler messageHandler, User user, CancellationToken cancellationToken)
+    {
+        Name = $"{nameof(Worker)}-{Guid.NewGuid().ToString()[..8]}";
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+        _messageHandler = messageHandler;
+        _user = user;
+        _cts = new CancellationTokenSource();
+        _linkedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token).Token;
+        _transactionCycleTimeLimitMs = _config.Workers.WorkerCycleTimeLimitSeconds * 1_000D;
 
-//    public async Task ProcessTransactionsAsync()
-//    {
-//        // Create transactions
-//        for (int i = 0; i < _config.FrequencyControl.TransactionProcessing.usert.Tra .TransactionProcessing.UserTransactionsToCreatePerCycle; i++)
-//        {
-//            var transaction = new Transaction
-//            {
-//                Id = Guid.NewGuid(),
-//                CreatedDate = DateTime.Now
-//                // Add other transaction properties as needed
-//            };
-//            _transactions.Add(transaction);
-//        }
+        _transactionTimer = new System.Timers.Timer
+        {
+            Interval = _config.Workers.WorkerTransactionsRoc.InitialFrequencySeconds * 1_000D,
+            AutoReset = true
+        };
+        _transactionTimer.Elapsed += async (sender, e) => await RunTransactionsAsync();
+    }
 
-//        // Review transactions
-//        for (int i = 0; i < Math.Min(_config.TransactionProcessing.UserTransactionsToReviewPerCycle, _transactions.Count); i++)
-//        {
-//            var transaction = _transactions[i];
-//            transaction.ReviewedDate = DateTime.Now;
-//            // Add review logic as needed
-//        }
+    public void Initialize()
+    {
+        _transactionTimer.Start();
+        _isActive = true;
+    }
 
-//        // Simulate async processing
-//        await Task.CompletedTask;
-//    }
+    public async Task RunTransactionsAsync()
+    {
+        if (!_isActive || _linkedToken.IsCancellationRequested)
+            return;
 
-//    public IReadOnlyList<Transaction> Transactions => _transactions.AsReadOnly();
-//}
+        var totalTime = TimeSpan.FromMilliseconds(_transactionCycleTimeLimitMs);
+        var startTime = DateTime.Now;
 
-////using System;
-////using System.Net.Http.Json;
-////using System.Threading;
-////using System.Threading.Tasks;
-////using TestControl.Infrastructure;
-////using TestControl.Infrastructure.SubjectApiPublic;
+        var transactionsToAdd = new UserTransaction[_config.Workers.TransactionsToCreatePerCycle];
+        for (int i = 0; i < _config.Workers.TransactionsToCreatePerCycle; i++)
+        {
+            transactionsToAdd[i] = TestDataCreationService.CreateTransaction(_user, "Pending");
+        }
 
-////namespace TestControl.AppServices.Workers
-////{
-////    public class Worker
-////    {
-////        private readonly HttpClient _httpClient;
-////        private readonly TestConfig _config;
-////        private readonly MessageHandler _messageHandler;
-////        private readonly CancellationToken _cancellationToken;
-////        private readonly User _user;
-////        private readonly Organization _organization;
-////        private bool _isActive = false;
+        foreach (var transaction in transactionsToAdd)
+        {
+            if (_linkedToken.IsCancellationRequested)
+                break;
 
-////        public Worker(HttpClient httpClient, TestConfig config, MessageHandler messageHandler, CancellationToken cancellationToken, User user, Organization organization)
-////        {
-////            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-////            _config = config ?? throw new ArgumentNullException(nameof(config));
-////            _messageHandler = messageHandler;
-////            _cancellationToken = cancellationToken;
-////            _user = user ?? throw new ArgumentNullException(nameof(user));
-////            _organization = organization ?? throw new ArgumentNullException(nameof(organization));
-////        }
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync("api/transaction", transaction, _linkedToken);
+                response.EnsureSuccessStatusCode();
+                TransactionQueue.Enqueue(transaction);
+            }
+            catch (TaskCanceledException)
+            {
+                // Ignore
+            }
+            catch (Exception ex)
+            {
+                _messageHandler?.Invoke(new MessageToControlProgram
+                {
+                    IsTestCancellation = true,
+                    Exception = ex,
+                    Message = $"Transaction creation failed: {transaction.TransactionId}",
+                    MessageLevel = MessageLevel.Error,
+                    Source = Name,
+                    ThreadId = Environment.CurrentManagedThreadId
+                });
+            }
+        }
 
-////        public Task ActivateAsync()
-////        {
-////            _isActive = true;
-////            return Task.CompletedTask;
-////        }
+        var transactionToUpdate = TransactionQueue.DequeuePendingTransactionForUser(_user);
 
-////        public async Task ProcessTransactionsAsync()
-////        {
-////            if (!_isActive || _cancellationToken.IsCancellationRequested)
-////                return;
+        if (transactionToUpdate != null)
+        {
+            var timeLeft = .9D * (totalTime - (DateTime.Now - startTime));
 
-////            for (int i = 0; i < _config.FrequencyControl.TransactionProcessing.UserTransactionsToCreatePerCycle; i++)
-////            {
-////                var transaction = await FetchOrCreateTransactionAsync();
-////                if (transaction != null)
-////                {
-////                    await UpdateTransactionStatusAsync(transaction.TransactionId, "In Review");
-////                    await PerformComplexComputationAsync();
-////                    await UpdateTransactionStatusAsync(transaction.TransactionId, ApproveOrDeny(transaction.Amount));
-////                }
-////            }
-////        }
+            if (timeLeft > TimeSpan.FromMilliseconds(10))
+            {
+                await Task.Delay(timeLeft);
+            }
 
-////        private async Task<UserTransaction> FetchOrCreateTransactionAsync()
-////        {
-////            try
-////            {
-////                // Attempt to fetch pending transactions for the organization
-////                var transactions = await _httpClient.GetFromJsonAsync<List<UserTransaction>>(
-////                    $"api/transactions/pending?organizationId={_organization.OrganizationId}",
-////                    _cancellationToken
-////                );
-////                var pending = transactions?.FirstOrDefault(t => t.Status == "Pending");
-////                if (pending != null)
-////                    return pending;
+            try
+            {
+                transactionToUpdate.Status = Random.Shared.Next(2) == 0 ? "Approved" : "Denied";
+                var response = await _httpClient.PutAsJsonAsync("api/transaction", transactionToUpdate, _linkedToken);
+                response.EnsureSuccessStatusCode();
+            }
+            catch (TaskCanceledException)
+            {
+                // Ignore
+            }
+            catch (Exception ex)
+            {
+                _messageHandler?.Invoke(new MessageToControlProgram
+                {
+                    IsTestCancellation = true,
+                    Exception = ex,
+                    Message = $"Transaction update failed: {transactionToUpdate.TransactionId}",
+                    MessageLevel = MessageLevel.Error,
+                    Source = Name,
+                    ThreadId = Environment.CurrentManagedThreadId
+                });
+            }
+        }
 
-////                // If no pending transactions, create a new one
-////                var newTransaction = TestDataCreationService.CreateUserTransaction(_user, _organization, "Pending");
-////                var response = await _httpClient.PostAsJsonAsync("api/transactions", newTransaction, _cancellationToken);
-////                response.EnsureSuccessStatusCode();
-////                return await response.Content.ReadFromJsonAsync<UserTransaction>(_cancellationToken);
-////            }
-////            catch (Exception ex)
-////            {
-////                _messageHandler?.Invoke(new MessageToControlProgram
-////                {
-////                    Exception = ex,
-////                    Message = "Failed to fetch or create transaction",
-////                    MessageLevel = MessageLevel.Err,
-////                    Source = nameof(Worker),
-////                    ThreadId = Environment.CurrentManagedThreadId
-////                });
-////                return null;
-////            }
-////        }
+        if (DateTime.Now - startTime > totalTime)
+        {
+            _cts.Cancel();
+            _messageHandler?.Invoke(new MessageToControlProgram()
+            {
+                IsTestCancellation = true,
+                Message = $"{Name} could not complete initialization in allotted time.",
+                MessageLevel = MessageLevel.Critical,
+                Source = Name,
+                ThreadId = Environment.CurrentManagedThreadId
+            });
+        }
+    }
 
-////        private async Task UpdateTransactionStatusAsync(Guid transactionId, string newStatus)
-////        {
-////            var updateData = new { Status = newStatus };
-////            try
-////            {
-////                var response = await _httpClient.PutAsJsonAsync(
-////                    $"api/transactions/{transactionId}/status",
-////                    updateData,
-////                    _cancellationToken
-////                );
-////                response.EnsureSuccessStatusCode();
-////                _messageHandler?.Invoke(new MessageToControlProgram
-////                {
-////                    Message = $"Updated transaction {transactionId} to {newStatus}",
-////                    MessageLevel = MessageLevel.Info,
-////                    Source = nameof(Worker),
-////                    ThreadId = Environment.CurrentManagedThreadId
-////                });
-////            }
-////            catch (Exception ex)
-////            {
-////                _messageHandler?.Invoke(new MessageToControlProgram
-////                {
-////                    Exception = ex,
-////                    Message = $"Failed to update transaction {transactionId}",
-////                    MessageLevel = MessageLevel.Err,
-////                    Source = nameof(Worker),
-////                    ThreadId = Environment.CurrentManagedThreadId
-////                });
-////            }
-////        }
+    public void CompressIntervals()
+    {
+        var currentInterval = _transactionTimer.Interval;
+        var targetInterval = Math.Max(_config.Workers.WorkerTransactionsRoc.MinFrequencySeconds * 1_000D,
+                                     currentInterval - _config.Workers.WorkerTransactionsRoc.AmountToDecreaseMs);
 
-////        private async Task PerformComplexComputationAsync()
-////        {
-////            int complexity = ComputeHashDifficulty();
-////            Parallel.For(0, complexity, i => { _ = Math.Pow(i, 2); });
-////            await Task.Delay(TimeSpan.FromMilliseconds(complexity), _cancellationToken);
-////        }
+        if (targetInterval > 0 && targetInterval < currentInterval)
+        {
+            lock (_timerLock)
+            {
+                _transactionCycleTimeLimitMs = targetInterval / 2D;
+                _transactionTimer.Stop();
+                _transactionTimer.Interval = targetInterval;
+                _transactionTimer.Start();
+            }
+        }
+    }
 
-////        private int ComputeHashDifficulty()
-////        {
-////            return _config.FrequencyControl.TransactionProcessing.MaxTimeToMinFrequencyMinutes * 100;
-////        }
-
-////        private static string ApproveOrDeny(decimal amount)
-////        {
-////            return amount % 2 == 0 ? "Approved" : "Denied";
-////        }
-////    }
-////}
+    public void Stop()
+    {
+        _isActive = false;
+        _transactionTimer.Stop();
+    }
+}

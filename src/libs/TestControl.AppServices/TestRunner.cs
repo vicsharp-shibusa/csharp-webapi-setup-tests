@@ -17,7 +17,7 @@ public class TestRunner : IDisposable
     private readonly Collection<Admin> _admins = [];
 
     private readonly CancellationTokenSource _cts;
-    private readonly CancellationToken _linkedToken; // links the local token to the injected token.
+    private readonly CancellationToken _linkedToken;
 
     private readonly ResponseTimeHandler _responseTimeHandler;
     private readonly HttpClient _httpClient;
@@ -190,14 +190,6 @@ public class TestRunner : IDisposable
                         return;
                     }
 
-                    //// Calculate remaining time in the cycle and delay
-                    //double remainingTimeMs = cycleTimeMs - elapsedMs;
-                    //if (remainingTimeMs > 0)
-                    //{
-                    //    await Task.Delay(TimeSpan.FromMilliseconds(remainingTimeMs), _linkedToken);
-                    //}
-
-                    // Add the admin to the list after the delay
                     _admins.Add(admin);
                     if (_admins.Count >= limit)
                         break;
@@ -207,6 +199,7 @@ public class TestRunner : IDisposable
     }
 
     private bool _isStopping = false;
+
     /// <summary>
     /// Stops the test and all admin activities.
     /// </summary>

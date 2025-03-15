@@ -16,6 +16,8 @@ public sealed class Admin
     private readonly CancellationToken _linkedToken;
     private bool _isActive = false;
     private readonly Collection<Guid> _orgIds = [];
+    private readonly Collection<Worker> _workers = [];
+
     private Collection<Guid> _workerIds = [];
     private readonly System.Timers.Timer _queryTimer;
     private readonly Lock _timerLock = new();
@@ -67,8 +69,9 @@ public sealed class Admin
 
                 for (int j = 0; j < _config.Admins.InitialWorkersPerOrg; j++)
                 {
-                    var worker = TestDataCreationService.CreateUser(childOrg, "Worker");
-                    usersToAdd.Add(worker);
+                    var workerUser = TestDataCreationService.CreateUser(childOrg, "Worker");
+                    usersToAdd.Add(workerUser);
+                    _workers.Add(new Worker(_httpClient, _config, _messageHandler, workerUser, _linkedToken));
                 }
             }
         }
@@ -149,7 +152,7 @@ public sealed class Admin
             _messageHandler?.Invoke(new MessageToControlProgram()
             {
                 IsTestCancellation = true,
-                Message = $"{nameof(Admin)} could not complete initialization in allotted time.",
+                Message = $"{Name} could not complete initialization in allotted time.",
                 MessageLevel = MessageLevel.Critical,
                 Source = Name,
                 ThreadId = Environment.CurrentManagedThreadId
@@ -161,6 +164,11 @@ public sealed class Admin
             _workerIds = [.. usersToAdd.Where(u => u.Role == "Worker").Select(x => x.UserId).ToArray()];
             _isActive = true;
             _queryTimer.Start();
+
+            foreach (var w in _workers)
+            {
+                w.Initialize();
+            }
         }
     }
 
@@ -218,20 +226,22 @@ public sealed class Admin
 
         if (DateTime.Now - startTime > totalTime && !_linkedToken.IsCancellationRequested)
         {
-                _messageHandler?.Invoke(new MessageToControlProgram()
-                {
-                    IsTestCancellation = true,
-                    Message = $"{nameof(Admin)} could not complete queries in allotted time: {totalTime.TotalMilliseconds:F2} ms.",
-                    MessageLevel = MessageLevel.Critical,
-                    Source = Name,
-                    ThreadId = Environment.CurrentManagedThreadId
-                });
-                _cts.Cancel();
+            _messageHandler?.Invoke(new MessageToControlProgram()
+            {
+                IsTestCancellation = true,
+                Message = $"{nameof(Admin)} could not complete queries in allotted time: {totalTime.TotalMilliseconds:F2} ms.",
+                MessageLevel = MessageLevel.Critical,
+                Source = Name,
+                ThreadId = Environment.CurrentManagedThreadId
+            });
+            _cts.Cancel();
         }
     }
 
     public void CompressIntervals()
     {
+        Parallel.ForEach(_workers, w => w.CompressIntervals());
+
         var currentInterval = _queryTimer.Interval;
         var targetInterval = Math.Max(_config.Admins.AdminQueryRoc.MinFrequencySeconds * 1_000D,
             currentInterval - _config.Admins.AdminQueryRoc.AmountToDecreaseMs);

@@ -26,6 +26,16 @@
       "amountToDecreaseMs": 1000
     }
   },
+  "workers": {
+    "transactionsToCreatePerCycle": 1,
+    "workerCycleTimeLimitSeconds": 15,
+    "workerTransactionsRoc": {
+      "initialFrequencySeconds": 5,
+      "minFrequencySeconds": 0,
+      "frequencyToDecreaseIntervalSeconds": 10,
+      "amountToDecreaseMs": 1000
+    }
+  },
   "responseThreshold": {
     "averageResponseTimePeriod": 100,
     "averageResponseTimeThresholdMs": 50

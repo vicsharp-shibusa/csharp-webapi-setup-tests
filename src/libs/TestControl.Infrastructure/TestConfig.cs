@@ -13,6 +13,7 @@ public class TestConfig
     public int StatusCheckIntervalSeconds { get; init; } = 30;
     public ApiConfig Api { get; init; } = new();
     public AdminConfig Admins { get; init; } = new();
+    public WorkerConfig Workers { get; init; } = new();
     public ResponseThresholdConfig ResponseThreshold { get; init; } = new();
 
     private static readonly JsonSerializerOptions _serializerOptions = new()
@@ -104,6 +105,23 @@ public class AdminConfig
         if (ReportsToRunPerCycle < 1)
             yield return ConfigMessageHandler.LessThanMessage(nameof(ReportsToRunPerCycle), 1);
         foreach (var item in AdminQueryRoc.GetValidationMessages(nameof(AdminConfig)))
+            yield return item;
+    }
+}
+
+public class WorkerConfig
+{
+    public int TransactionsToCreatePerCycle { get; init; } = 1;
+    public int WorkerCycleTimeLimitSeconds { get; init; } = 20;
+    public RateOfChangeConfig WorkerTransactionsRoc { get; init; } = new();
+
+    public IEnumerable<string> GetValidationMessages()
+    {
+        if (TransactionsToCreatePerCycle < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(TransactionsToCreatePerCycle), 1);
+        if (WorkerCycleTimeLimitSeconds < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(WorkerCycleTimeLimitSeconds), 1);
+        foreach (var item in WorkerTransactionsRoc.GetValidationMessages(nameof(WorkerConfig)))
             yield return item;
     }
 }

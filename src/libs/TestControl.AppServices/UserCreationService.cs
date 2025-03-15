@@ -40,13 +40,13 @@ public static class TestDataCreationService
         };
     }
 
-    public static UserTransaction CreateUserTransaction(User user, Organization org, string status = null)
+    public static UserTransaction CreateTransaction(User user, string status = null)
     {
         return new UserTransaction()
         {
             Account = GetUniqueString(),
             Amount = Convert.ToDecimal(_rnd.Next(1, 1_000_000) / 103M),
-            Organization = org ?? throw new ArgumentNullException(nameof(org)),
+            Organization = user.Organization,
             Status = status ?? GetUniqueString(),
             User = user ?? throw new ArgumentNullException(nameof(user))
         };

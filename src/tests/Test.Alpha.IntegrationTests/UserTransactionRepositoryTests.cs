@@ -22,7 +22,7 @@ public class UserTransactionRepositoryTests : TestBase
     {
         var org = TestDataCreationService.CreateOrg(TestDataCreationService.CreateOrg());
         var user = TestDataCreationService.CreateUser(org);
-        var transaction = TestDataCreationService.CreateUserTransaction(user, org, "Pending");
+        var transaction = TestDataCreationService.CreateTransaction(user, "Pending");
 
         var opId = Guid.NewGuid();
         await _userRepository.UpsertAsync(user, opId);
@@ -47,17 +47,17 @@ public class UserTransactionRepositoryTests : TestBase
     [Fact]
     public async Task GetForOrganizationAsync_Valid_Returns()
     {
-        const int numToCreate = 10;
+        const int NumToCreate = 10;
         var org = TestDataCreationService.CreateOrg(TestDataCreationService.CreateOrg());
         var user = TestDataCreationService.CreateUser(org);
 
         await _userRepository.UpsertAsync(user, Guid.NewGuid());
 
-        UserTransaction[] arr = new UserTransaction[numToCreate];
+        UserTransaction[] arr = new UserTransaction[NumToCreate];
 
-        for (int i = 0; i < numToCreate; i++)
+        for (int i = 0; i < NumToCreate; i++)
         {
-            arr[i] = TestDataCreationService.CreateUserTransaction(user, org, "Testing");
+            arr[i] = TestDataCreationService.CreateTransaction(user, "Testing");
         }
 
         foreach (var t in arr)
