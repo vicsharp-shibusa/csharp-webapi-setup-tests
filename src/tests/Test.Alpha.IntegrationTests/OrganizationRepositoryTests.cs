@@ -1,6 +1,6 @@
 ﻿using Alpha.Common;
 using Alpha.Repositories;
-using TestControl.AppServices;
+using TestControl.Infrastructure;
 
 namespace Test.Alpha.IntegrationTests;
 

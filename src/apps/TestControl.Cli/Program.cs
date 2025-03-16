@@ -276,6 +276,7 @@ class Program
         }
     }
 
+    // TODO: Warmup could be a bit more sophisticated.
     private static async Task WarmupTestEnvironment(HttpClient httpClient)
     {
         var timer = Stopwatch.StartNew();

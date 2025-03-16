@@ -6,7 +6,7 @@ public class ResponseTimeHandler : DelegatingHandler
 {
     //private double _runningSum;        // Sum of values in the "window"
     //private int _count;                // Number of values added, up to maxPeriods
-    private Queue<double> _responseTimes;
+    private readonly Queue<double> _responseTimes;
     private int _numberCalls;          // Total number of calls made by this handler
     private readonly int _maxPeriods;  // Number of values in the moving average
     private readonly int _thresholdMs; // Threshold for cancellation

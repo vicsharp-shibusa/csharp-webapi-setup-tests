@@ -86,14 +86,25 @@ public partial class TestLogFileManager : IDisposable
         }
         else
         {
-            var matches = LogFileNameRegex().Matches(_currentLogFilePath);
+            lock (_locker)
+            {
+                var matches = LogFileNameRegex().Matches(_currentLogFilePath);
 
-            Debug.Assert(matches.Count > 0 && matches[0].Groups.Count > 0);
+                Debug.Assert(matches.Count > 0 && matches[0].Groups.Count > 0);
 
-            CloseCurrentLogFile();
+                if (_currentLogFileStream.CanWrite)
+                {
+                    _currentLogFileStream.Flush();
+                    _currentLogFileStream.Close();
+                }
 
-            _currentLogFilePath = BuildLogFilePath(matches[0].Groups[1].Value);
-            StartLogFile();
+                _currentLogFilePath = BuildLogFilePath(matches[0].Groups[1].Value);
+
+                _currentLogFileStream = File.Create(_currentLogFilePath);
+                _currentLogFileStream.WriteLine($"File started at local time {DateTime.Now:yyyy-MM-dd HH:mm}");
+                _currentLogFileStream.Flush();
+                _currentByteSize = _currentLogFileStream.Length;
+            }
         }
         Debug.Assert(_currentLogFileStream != null);
     }
@@ -113,8 +124,11 @@ public partial class TestLogFileManager : IDisposable
     {
         lock (_locker)
         {
-            _currentLogFileStream?.Flush();
-            _currentLogFileStream?.Close();
+            if (_currentLogFileStream?.CanWrite ?? false)
+            {
+                _currentLogFileStream?.Flush();
+                _currentLogFileStream?.Close();
+            }
         }
     }
 
@@ -124,6 +138,7 @@ public partial class TestLogFileManager : IDisposable
         {
             if (disposing)
             {
+                CloseCurrentLogFile();
                 _currentLogFileStream.Dispose();
             }
             _disposedValue = true;

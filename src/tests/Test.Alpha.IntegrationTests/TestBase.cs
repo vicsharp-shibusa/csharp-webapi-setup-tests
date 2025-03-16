@@ -1,12 +1,9 @@
 ﻿using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
-using System;
-using System.Data;
 using TestControl.AppServices;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.Database;
-using TestControl.Infrastructure.SubjectApiPublic;
 
 namespace Test.Alpha.IntegrationTests;
 
@@ -61,6 +58,6 @@ public abstract class TestBase
 
         _sqlProvider = StartupServices.GetSqlProvider(dbEngineSetting, version);
     }
-    
+
 }
 

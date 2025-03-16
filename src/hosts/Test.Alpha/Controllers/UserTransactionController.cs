@@ -36,7 +36,8 @@ public class UserTransactionController : ControllerBase
     }
 
     [HttpGet("/api/organization/{organizationId}/transactions")]
-    public async Task<IActionResult> GetForOrg(Guid organizationId,
+    public async Task<IActionResult> GetForOrg(
+        [FromRoute]Guid organizationId,
         [FromQuery] string status = null,
         [FromQuery] string startTime = null,
         [FromQuery] string finishTime = null)

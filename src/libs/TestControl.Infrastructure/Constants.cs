@@ -1,4 +1,4 @@
-﻿using TestControl.Infrastructure.SubjectApiPublic;  
+﻿using TestControl.Infrastructure.SubjectApiPublic;
 
 namespace TestControl.Infrastructure;
 
@@ -19,8 +19,28 @@ public enum DbEngine
     MSSQL = 1
 }
 
+public enum Mode
+{
+    Fair = 0,
+    BruteForce = 1
+}
+
+public enum UserTransactionType
+{
+    Pending = 0,
+    Approved,
+    Denied,
+    Cancelled
+}
+
 public static class Constants
 {
+    public static class WorkerTypes
+    {
+        public const string Admin = nameof(Admin);
+        public const string Worker = nameof(Worker);
+    }
+
     public static class TestUris
     {
         public const string TestInitialize = "api/test/initialize";

@@ -1,6 +1,6 @@
 ﻿using Alpha.Common;
 using Alpha.Repositories;
-using TestControl.AppServices;
+using TestControl.Infrastructure;
 using TestControl.Infrastructure.SubjectApiPublic;
 
 namespace Test.Alpha.IntegrationTests;

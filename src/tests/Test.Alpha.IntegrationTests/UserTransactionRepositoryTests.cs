@@ -1,6 +1,6 @@
 ﻿using Alpha.Common;
 using Alpha.Repositories;
-using TestControl.AppServices;
+using TestControl.Infrastructure;
 using TestControl.Infrastructure.SubjectApiPublic;
 
 namespace Test.Alpha.IntegrationTests;
@@ -22,7 +22,7 @@ public class UserTransactionRepositoryTests : TestBase
     {
         var org = TestDataCreationService.CreateOrg(TestDataCreationService.CreateOrg());
         var user = TestDataCreationService.CreateUser(org);
-        var transaction = TestDataCreationService.CreateTransaction(user, "Pending");
+        var transaction = TestDataCreationService.CreateTransaction(user, UserTransactionType.Pending.ToString());
 
         var opId = Guid.NewGuid();
         await _userRepository.UpsertAsync(user, opId);

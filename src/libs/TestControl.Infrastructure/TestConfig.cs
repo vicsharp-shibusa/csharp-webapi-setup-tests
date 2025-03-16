@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Collections.ObjectModel;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace TestControl.Infrastructure;
 
@@ -7,6 +9,25 @@ namespace TestControl.Infrastructure;
 /// </summary>
 public class TestConfig
 {
+    [JsonPropertyName("mode")]
+    public string TestMode { get; init; } = Mode.Fair.ToString();
+    private Mode _mode = Mode.Fair;
+    [JsonIgnore]
+    public Mode Mode
+    {
+        get
+        {
+            if (!Enum.TryParse(TestMode.Replace(" ", ""), true, out _mode))
+            {
+                throw new Exception($"Unknown test mode: {TestMode}");
+            }
+
+            return _mode;
+        }
+    }
+    public int MinDelayMs { get; init; } = 0;
+    [JsonIgnore]
+    public TimeSpan MinDelay => MinDelayMs <= 0 ? TimeSpan.Zero : TimeSpan.FromMilliseconds(MinDelayMs);
     public int TestDurationMinutes { get; init; } = 0;
     public int ShutdownDelayMs { get; init; } = 10_000;
     public int WarmupCycles { get; init; } = 500;
@@ -44,6 +65,8 @@ public class TestConfig
             yield return ConfigMessageHandler.LessThanMessage(nameof(WarmupCycles), 0);
         if (StatusCheckIntervalSeconds < 1)
             yield return ConfigMessageHandler.LessThanMessage(nameof(StatusCheckIntervalSeconds), 1);
+        if (MinDelayMs < 0)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(MinDelayMs), 0);
 
         foreach (var item in Api.GetValidationMessages()
             .Union(Admins.GetValidationMessages())
@@ -90,6 +113,8 @@ public class AdminConfig
             yield return ConfigMessageHandler.LessThanMessage(nameof(MaxAdmins), 1);
         if (InitialAdmins < 1)
             yield return ConfigMessageHandler.LessThanMessage(nameof(InitialAdmins), 1);
+        if (MaxAdmins < InitialAdmins)
+            yield return $"{nameof(MaxAdmins)} cannot be less than {nameof(InitialAdmins)}";
         if (InitialOrgsPerParent < 1)
             yield return ConfigMessageHandler.LessThanMessage(nameof(InitialOrgsPerParent), 1);
         if (InitialParentOrgsPerAdmin < 1)
@@ -107,11 +132,20 @@ public class AdminConfig
         foreach (var item in AdminQueryRoc.GetValidationMessages(nameof(AdminConfig)))
             yield return item;
     }
+
+    /*
+     * A hint when trying to average out delays across a bunch of calls to the test subject api.
+     * Look at the initialize function in Admin if you want to double-check the math.
+     * This is why the defaults for these values are small; make them big for full onslaught.
+     */
+    [JsonIgnore]
+    public int UnitsOfWorkEstimate => InitialParentOrgsPerAdmin * InitialAdmins * InitialOrgsPerParent * (1 + InitialWorkersPerOrg);
 }
 
 public class WorkerConfig
 {
     public int TransactionsToCreatePerCycle { get; init; } = 1;
+    public int TransactionsToEvaluatePerCycle { get; init; } = 1;
     public int WorkerCycleTimeLimitSeconds { get; init; } = 20;
     public RateOfChangeConfig WorkerTransactionsRoc { get; init; } = new();
 
@@ -119,11 +153,20 @@ public class WorkerConfig
     {
         if (TransactionsToCreatePerCycle < 1)
             yield return ConfigMessageHandler.LessThanMessage(nameof(TransactionsToCreatePerCycle), 1);
+        if (TransactionsToEvaluatePerCycle < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(TransactionsToEvaluatePerCycle), 1);
         if (WorkerCycleTimeLimitSeconds < 1)
             yield return ConfigMessageHandler.LessThanMessage(nameof(WorkerCycleTimeLimitSeconds), 1);
         foreach (var item in WorkerTransactionsRoc.GetValidationMessages(nameof(WorkerConfig)))
             yield return item;
     }
+
+    ///*
+    // * A hint when trying to average out delays across a bunch of calls to the test subject api.
+    // * Look at the RunTransactions function in Worker if you want to double-check the math.
+    // */
+    //[JsonIgnore]
+    //public int UnitsOfWorkEstimate => TransactionsToCreatePerCycle + TransactionsToEvaluatePerCycle + 1;
 }
 
 public class RateOfChangeConfig

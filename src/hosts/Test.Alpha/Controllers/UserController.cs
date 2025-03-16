@@ -8,10 +8,11 @@ namespace Test.Alpha.Controllers;
 [ApiController]
 public class UserController : ControllerBase
 {
-    public static HashSet<Guid> AdminIds = new();
+    //public static HashSet<Guid> AdminIds = new();
     private readonly IUserService _userService;
     private readonly TestMetricsService _testMetricsService;
     private readonly ILogger<UserController> _logger;
+    //private static readonly Lock _locker = new();
 
     public UserController(IUserService userService,
         TestMetricsService testMetricsService,
@@ -48,16 +49,21 @@ public class UserController : ControllerBase
     public async Task<IActionResult> Upsert(User user)
     {
         string httpMethod = HttpContext.Request.Method;
-        if (httpMethod == "POST" && user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) &&
-            !AdminIds.Contains(user.UserId))
+
+        //lock (_locker)
+        //{
+        if (httpMethod == "POST" && user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+        //!AdminIds.Contains(user.UserId))
         {
             _testMetricsService.IncrementAdmins();
-            AdminIds.Add(user.UserId);
+            //AdminIds.Add(user.UserId);
         }
+        //}
         if (httpMethod == "POST" && user.Role.Equals("Worker", StringComparison.OrdinalIgnoreCase))
         {
             _testMetricsService.IncrementWorkers();
         }
+
         await _userService.UpsertAsync(user);
         return NoContent();
     }

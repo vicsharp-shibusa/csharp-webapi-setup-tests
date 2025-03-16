@@ -15,7 +15,7 @@ public record User
         {
             UserId = UserId,
             Name = Name,
-            Email = Email,
+            Email = $"{TestDataCreationService.GetUniqueString(8)}@test.org",
             CreatedAt = DateTime.UtcNow,
             Organization = org,
             Role = role

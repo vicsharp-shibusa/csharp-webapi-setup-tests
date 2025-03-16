@@ -12,7 +12,7 @@ namespace TestControl.AppServices;
 public class TestRunner : IDisposable
 {
     private bool _disposedValue;
-    
+
     private readonly TestConfig _config;
     private readonly Collection<Admin> _admins = [];
 
@@ -26,7 +26,7 @@ public class TestRunner : IDisposable
 
     private readonly System.Timers.Timer _queryTimer;
     private readonly System.Timers.Timer _statusTimer;
-    
+
     private readonly double _queryTimeWindowMs;
 
     public TestRunner(
@@ -117,14 +117,14 @@ public class TestRunner : IDisposable
         }
     }
 
-    private void AdminRocQueryTimerCallback(object sender, ElapsedEventArgs e)
+    private async void AdminRocQueryTimerCallback(object sender, ElapsedEventArgs e)
     {
         if (_linkedToken.IsCancellationRequested)
             return;
 
         Communicate("Decreasing query interval and time allocation for admins.");
 
-        Parallel.ForEach(_admins, admin => admin.CompressIntervals());
+        await Parallel.ForEachAsync(_admins, async (admin, _) => await admin.CompressIntervalsAsync());
     }
 
     /// <summary>

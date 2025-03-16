@@ -1,5 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 
 namespace TestControl.Infrastructure.SubjectApiPublic;
@@ -12,6 +11,7 @@ public record TestStatus
     public double MovingAvgResponseTime { get; set; }
     public double ResponseTimeThreshold { get; set; }
     public MemoryUsage MemoryUsage { get; } = new();
+    public long TotalServiceInstantiations => ServiceInstantiations.Values.Sum();
     public IDictionary<string, long> ServiceInstantiations { get; init; } = new Dictionary<string, long>();
     public string Status
     {
@@ -50,7 +50,7 @@ public record TestStatus
         sb.AppendLine("Memory Usage:");
         sb.AppendLine(MemoryUsage.ToString());
         sb.AppendLine(Divider);
-        sb.AppendLine($"Total Instantiations: {ServiceInstantiations.Values.Sum()}");
+        sb.AppendLine($"Total Instantiations: {TotalServiceInstantiations}");
         sb.AppendLine($"Instantiations By Type:");
         foreach (var kvp in ServiceInstantiations)
         {
@@ -63,7 +63,7 @@ public record TestStatus
 }
 
 public record MemoryUsage
- {
+{
     public long TotalAllocatedBytes { get; } = GC.GetTotalAllocatedBytes();
     public long TotalMemory { get; } = GC.GetTotalMemory(false);
     public TimeSpan TotalPauseDuration { get; } = GC.GetTotalPauseDuration();

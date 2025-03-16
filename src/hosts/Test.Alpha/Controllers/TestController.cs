@@ -46,7 +46,6 @@ public class TestController : ControllerBase
         {
             var t = _dbMaintenanceService.PurgeDatabase();
             _testMetricsService.Reset();
-            UserController.AdminIds.Clear();
             await t;
             return NoContent();
         }
