@@ -7,7 +7,7 @@ The `Test.Alpha` architecture holds up pretty well, except that PostgreSQL can't
 
 - In "Brute Force" mode, the test eventually fails because the **database can't handle the volume of concurrent connections**.
 I **pulled Dapper** out and rolled my own set of IDbConnection extensions.
-All the follows is related to chasing that rabbit.
+All that follows is related to chasing that rabbit.
 
 - **Made DbProperties disposable.**
 In `Test.Alpha`, the repositories (the data access components) and DbProperties are `Scoped`, therefore the db connections they hold are closed and disposed of at the end of the HttpRequest cycle.
@@ -15,6 +15,8 @@ In `Test.Alpha`, the repositories (the data access components) and DbProperties 
 - Increased use of cancellation tokens.
 
 - The current version still **doesn't exit gracefully in all circumstances** - going to tackle that next.
+
+- Added a `deploy.sh` script for publishing release versions of the app to a target directory.
 
 ## Quick Start
 
