@@ -11,9 +11,6 @@ public static class StartupServices
         {
             throw new ArgumentException($"Could not parse db engine: {engine}");
         }
-        version = Math.Max(1, version);
-        // Build the SQL dictionary
-        var sqlRepository = new SqlRepository();
-        return new SqlProvider(sqlRepository.BuildDictionary(dbEngine, version));
+        return new SqlProvider(new SqlRepository().BuildDictionary(dbEngine, Math.Max(1, version)));
     }
 }

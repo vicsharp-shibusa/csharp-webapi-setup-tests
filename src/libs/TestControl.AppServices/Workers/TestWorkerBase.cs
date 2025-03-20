@@ -5,7 +5,7 @@ namespace TestControl.AppServices.Workers;
 
 public abstract class TestWorkerBase
 {
-    protected bool _isActive = false;
+    protected bool _isActive;
 
     protected readonly HttpClient _httpClient;
     protected readonly TestConfig _config;

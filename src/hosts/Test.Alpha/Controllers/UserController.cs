@@ -48,22 +48,6 @@ public class UserController : ControllerBase
     [HttpPut("api/user")]
     public async Task<IActionResult> Upsert(User user)
     {
-        string httpMethod = HttpContext.Request.Method;
-
-        //lock (_locker)
-        //{
-        if (httpMethod == "POST" && user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-        //!AdminIds.Contains(user.UserId))
-        {
-            _testMetricsService.IncrementAdmins();
-            //AdminIds.Add(user.UserId);
-        }
-        //}
-        if (httpMethod == "POST" && user.Role.Equals("Worker", StringComparison.OrdinalIgnoreCase))
-        {
-            _testMetricsService.IncrementWorkers();
-        }
-
         await _userService.UpsertAsync(user);
         return NoContent();
     }

@@ -10,7 +10,6 @@ namespace Test.Alpha.IntegrationTests;
 public abstract class TestBase
 {
     protected DbProperties DbProperties { get; }
-    protected readonly Random _rnd = new();
     protected SqlProvider _sqlProvider;
 
     protected TestBase()

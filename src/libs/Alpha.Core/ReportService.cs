@@ -55,9 +55,7 @@ public class ReportService : BaseService, IReportService
         // Ensure start is before finish, swapping if necessary
         if (finish < start)
         {
-            DateTime f = finish.Value;
-            finish = start;
-            start = f;
+            (start, finish) = (finish, start);
         }
 
         // Fetch the user

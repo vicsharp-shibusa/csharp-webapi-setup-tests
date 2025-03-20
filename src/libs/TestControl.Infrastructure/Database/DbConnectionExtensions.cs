@@ -3,6 +3,9 @@ using System.Data.Common;
 
 namespace TestControl.Infrastructure.Database;
 
+/// <summary>
+/// Contains a set of extensions for IDbConnection.
+/// </summary>
 public static class DbConnectionExtensions
 {
     private const int DefaultTimeout = 30;
@@ -13,7 +16,8 @@ public static class DbConnectionExtensions
             connection.Open();
     }
 
-    public static async Task EnsureOpenConnectionAsync(this IDbConnection connection, CancellationToken cancellationToken = default)
+    public static async Task EnsureOpenConnectionAsync(this IDbConnection connection,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (connection.State == ConnectionState.Closed)
@@ -25,7 +29,8 @@ public static class DbConnectionExtensions
         }
     }
 
-    public static IEnumerable<T> Query<T>(this IDbConnection connection, string sql, object param = null, IDbTransaction transaction = null)
+    public static IEnumerable<T> Query<T>(this IDbConnection connection, string sql,
+        object param = null, IDbTransaction transaction = null)
     {
         using (var command = connection.CreateCommand())
         {
@@ -36,12 +41,15 @@ public static class DbConnectionExtensions
 
             using (var reader = command.ExecuteReader())
             {
-                if (typeof(T).IsValueType || typeof(T) == typeof(string) || Nullable.GetUnderlyingType(typeof(T)) != null)
+                if (typeof(T).IsValueType || typeof(T) == typeof(string)
+                    || Nullable.GetUnderlyingType(typeof(T)) != null)
                 {
                     while (reader.Read())
                     {
                         var value = reader.GetValue(0);
-                        yield return reader.IsDBNull(0) ? default : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
+                        yield return reader.IsDBNull(0)
+                            ? default
+                            : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
                     }
                 }
                 else
@@ -58,8 +66,8 @@ public static class DbConnectionExtensions
         }
     }
 
-    public static async Task<IEnumerable<T>> QueryAsync<T>(this IDbConnection connection, string sql, object param = null,
-        IDbTransaction transaction = null, CancellationToken cancellationToken = default)
+    public static async Task<IEnumerable<T>> QueryAsync<T>(this IDbConnection connection,
+        string sql, object param = null, IDbTransaction transaction = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using (var command = connection.CreateCommand())
@@ -69,21 +77,30 @@ public static class DbConnectionExtensions
             AddParameters(command, param);
             await EnsureOpenConnectionAsync(connection, cancellationToken);
 
-            using (var reader = command is DbCommand dbCmd ? await dbCmd.ExecuteReaderAsync(cancellationToken) : command.ExecuteReader())
+            using (var reader = command is DbCommand dbCmd
+                ? await dbCmd.ExecuteReaderAsync(cancellationToken) 
+                : command.ExecuteReader())
             {
                 var results = new List<T>();
-                if (typeof(T).IsValueType || typeof(T) == typeof(string) || Nullable.GetUnderlyingType(typeof(T)) != null)
+                if (typeof(T).IsValueType || typeof(T) == typeof(string)
+                    || Nullable.GetUnderlyingType(typeof(T)) != null)
                 {
-                    while (reader is DbDataReader dbReader ? await dbReader.ReadAsync(cancellationToken) : reader.Read())
+                    while (reader is DbDataReader dbReader 
+                        ? await dbReader.ReadAsync(cancellationToken) 
+                        : reader.Read())
                     {
                         var value = reader.GetValue(0);
-                        results.Add(reader.IsDBNull(0) ? default : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T)));
+                        results.Add(reader.IsDBNull(0)
+                            ? default
+                            : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T)));
                     }
                 }
                 else
                 {
                     var mapper = CreateMapper<T>(reader);
-                    while (reader is DbDataReader dbReader ? await dbReader.ReadAsync(cancellationToken) : reader.Read())
+                    while (reader is DbDataReader dbReader
+                        ? await dbReader.ReadAsync(cancellationToken) 
+                        : reader.Read())
                     {
                         var item = Activator.CreateInstance<T>();
                         mapper(item, reader);
@@ -109,10 +126,13 @@ public static class DbConnectionExtensions
                 if (!reader.Read())
                     return default;
 
-                if (typeof(T).IsValueType || typeof(T) == typeof(string) || Nullable.GetUnderlyingType(typeof(T)) != null)
+                if (typeof(T).IsValueType || typeof(T) == typeof(string)
+                    || Nullable.GetUnderlyingType(typeof(T)) != null)
                 {
                     var value = reader.GetValue(0);
-                    return reader.IsDBNull(0) ? default : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
+                    return reader.IsDBNull(0) 
+                        ? default
+                        : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
                 }
                 else
                 {
@@ -157,7 +177,8 @@ public static class DbConnectionExtensions
         }
     }
 
-    public static T QuerySingleOrDefault<T>(this IDbConnection connection, string sql, object param = null, IDbTransaction transaction = null)
+    public static T QuerySingleOrDefault<T>(this IDbConnection connection, string sql, 
+        object param = null, IDbTransaction transaction = null)
     {
         using (var command = connection.CreateCommand())
         {
@@ -171,10 +192,13 @@ public static class DbConnectionExtensions
                 if (!reader.Read())
                     return default;
 
-                if (typeof(T).IsValueType || typeof(T) == typeof(string) || Nullable.GetUnderlyingType(typeof(T)) != null)
+                if (typeof(T).IsValueType || typeof(T) == typeof(string) 
+                    || Nullable.GetUnderlyingType(typeof(T)) != null)
                 {
                     var value = reader.GetValue(0);
-                    return reader.IsDBNull(0) ? default : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
+                    return reader.IsDBNull(0) 
+                        ? default
+                        : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
                 }
                 else
                 {
@@ -198,30 +222,40 @@ public static class DbConnectionExtensions
             AddParameters(command, param);
             await EnsureOpenConnectionAsync(connection, cancellationToken);
 
-            using (var reader = command is DbCommand dbCmd ? await dbCmd.ExecuteReaderAsync(cancellationToken) : command.ExecuteReader())
+            using (var reader = command is DbCommand dbCmd 
+                ? await dbCmd.ExecuteReaderAsync(cancellationToken) 
+                : command.ExecuteReader())
             {
-                bool hasRow = reader is DbDataReader dbReader ? await dbReader.ReadAsync(cancellationToken) : reader.Read();
+                bool hasRow = reader is DbDataReader dbReader 
+                    ? await dbReader.ReadAsync(cancellationToken)
+                    : reader.Read();
                 if (!hasRow)
                     return default;
 
-                if (typeof(T).IsValueType || typeof(T) == typeof(string) || Nullable.GetUnderlyingType(typeof(T)) != null)
+                if (typeof(T).IsValueType || typeof(T) == typeof(string)
+                    || Nullable.GetUnderlyingType(typeof(T)) != null)
                 {
                     var value = reader.GetValue(0);
-                    return reader.IsDBNull(0) ? default : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
+                    return reader.IsDBNull(0)
+                        ? default
+                        : (T)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
                 }
                 else
                 {
                     var item = Activator.CreateInstance<T>();
                     var mapper = CreateMapper<T>(reader);
                     mapper(item, reader);
-                    bool hasMoreRows = reader is DbDataReader dbRdr ? await dbRdr.ReadAsync(cancellationToken) : reader.Read();
+                    bool hasMoreRows = reader is DbDataReader dbRdr 
+                        ? await dbRdr.ReadAsync(cancellationToken) 
+                        : reader.Read();
                     return hasMoreRows ? default : item;
                 }
             }
         }
     }
 
-    public static int Execute(this IDbConnection connection, string sql, object param = null, IDbTransaction transaction = null, int commandTimeout = DefaultTimeout)
+    public static int Execute(this IDbConnection connection, string sql, object param = null,
+        IDbTransaction transaction = null, int commandTimeout = DefaultTimeout)
     {
         using (var command = connection.CreateCommand())
         {
@@ -245,7 +279,9 @@ public static class DbConnectionExtensions
             command.CommandTimeout = Math.Max(0, commandTimeout);
             AddParameters(command, param);
             await EnsureOpenConnectionAsync(connection, cancellationToken);
-            return command is DbCommand dbCmd ? await dbCmd.ExecuteNonQueryAsync(cancellationToken) : command.ExecuteNonQuery();
+            return command is DbCommand dbCmd
+                ? await dbCmd.ExecuteNonQueryAsync(cancellationToken)
+                : command.ExecuteNonQuery();
         }
     }
 

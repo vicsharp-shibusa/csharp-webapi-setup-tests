@@ -1,10 +1,10 @@
 {
   "mode": "Brute Force",
-  "minDelayMs": 50,
-  "testDurationMinutes": 5,
+  "minDelayMs": 0,
+  "testDurationMinutes": 3,
   "shutdownDelayMs": 1000,
   "warmupCycles": 5,
-  "statusCheckIntervalSeconds": 20,
+  "statusCheckIntervalSeconds": 50,
   "api": {
     "apiBaseUrl": "https://localhost:5260",
     "apiName": "Test.Alpha",
@@ -12,35 +12,35 @@
     "databaseVersion": "db1"
   },
   "admins": {
-    "maxAdmins": 100,
-    "initialAdmins": 100,
-    "initialOrgsPerParent": 1,
+    "maxAdmins": 500,
+    "initialAdmins": 25,
+    "initialOrgsPerParent": 2,
     "initialParentOrgsPerAdmin": 1,
     "initialWorkersPerOrg": 2,
-    "adminGrowthPerAdmin": 1,
+    "adminGrowthPerAdmin": 2,
     "adminGrowthCycleTimeLimitSeconds": 5,
-    "adminGrowthCycleFrequencyMs": 11000,
+    "adminGrowthCycleFrequencyMs": 2000,
     "reportsToRunPerCycle": 5,
     "adminQueryRoc": {
-      "initialFrequencySeconds": 10,
-      "minFrequencySeconds": 2,
-      "frequencyToDecreaseIntervalSeconds": 15,
-      "amountToDecreaseMs": 500
+      "initialFrequencySeconds": 5,
+      "minFrequencySeconds": 1,
+      "frequencyToDecreaseIntervalSeconds": 4,
+      "amountToDecreaseMs": 1200
     }
   },
   "workers": {
-    "transactionsToCreatePerCycle": 1,
-    "transactionsToEvaluatePerCycle": 1,
-    "workerCycleTimeLimitSeconds": 15,
+    "transactionsToCreatePerCycle": 10,
+    "transactionsToEvaluatePerCycle": 10,
+    "workerCycleTimeLimitSeconds": 3,
     "workerTransactionsRoc": {
       "initialFrequencySeconds": 5,
-      "minFrequencySeconds": 0,
-      "frequencyToDecreaseIntervalSeconds": 10,
-      "amountToDecreaseMs": 500
+      "minFrequencySeconds": 1,
+      "frequencyToDecreaseIntervalSeconds": 8,
+      "amountToDecreaseMs": 1200
     }
   },
   "responseThreshold": {
     "averageResponseTimePeriod": 100,
-    "averageResponseTimeThresholdMs": 999
+    "averageResponseTimeThresholdMs": 299
   }
 }

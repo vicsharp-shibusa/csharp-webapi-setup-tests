@@ -26,13 +26,13 @@ public class UserTransactionController : ControllerBase
     [HttpPut("/api/transaction")]
     public async Task<IActionResult> UpsertAsync(UserTransaction transaction)
     {
-        if (HttpContext.Request.Method == "POST")
+        if (HttpContext.Request.Method == "PUT")
         {
-            _testMetricsService.IncrementTransactions();
+            transaction.ProcessedAt ??= DateTime.Now;
         }
 
         await _userService.UpsertTransactionAsync(transaction);
-        return NoContent();
+        return Accepted();
     }
 
     [HttpGet("/api/organization/{organizationId}/transactions")]

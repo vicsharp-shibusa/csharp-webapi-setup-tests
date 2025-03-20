@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -48,17 +48,32 @@ public class TestConfig
             throw new FileNotFoundException($"Configuration file not found: {path}");
 
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<TestConfig>(json, _serializerOptions)
+        var config = JsonSerializer.Deserialize<TestConfig>(json, _serializerOptions)
             ?? throw new Exception("Failed to deserialize configuration.");
+
+        var messages = config.GetValidationMessages().ToArray();
+
+        if (messages.Length > 0)
+        {
+            StringBuilder sb = new();
+            sb.AppendLine($"Config file failed validation checks on {nameof(LoadFromFile)}");
+            foreach (var m in messages)
+            {
+                sb.AppendLine(m);
+            }
+            throw new ArgumentException(sb.ToString());
+        }
+
+        return config;
     }
 
     public IEnumerable<string> GetValidationMessages()
     {
-        int maxDur = 72 * 60;
+        const int MaxDur = 72 * 60; // 3 days
         if (TestDurationMinutes < 0)
             yield return ConfigMessageHandler.LessThanMessage(nameof(TestDurationMinutes), 0);
-        if (TestDurationMinutes > maxDur)
-            yield return ConfigMessageHandler.GreaterThanMessage(nameof(TestDurationMinutes), maxDur);
+        if (TestDurationMinutes > MaxDur)
+            yield return ConfigMessageHandler.GreaterThanMessage(nameof(TestDurationMinutes), MaxDur);
         if (ShutdownDelayMs < 0)
             yield return ConfigMessageHandler.LessThanMessage(nameof(ShutdownDelayMs), 0);
         if (WarmupCycles < 0)
@@ -70,6 +85,7 @@ public class TestConfig
 
         foreach (var item in Api.GetValidationMessages()
             .Union(Admins.GetValidationMessages())
+            .Union(Workers.GetValidationMessages())
             .Union(ResponseThreshold.GetValidationMessages()))
             yield return item;
     }
@@ -134,9 +150,7 @@ public class AdminConfig
     }
 
     /*
-     * A hint when trying to average out delays across a bunch of calls to the test subject api.
-     * Look at the initialize function in Admin if you want to double-check the math.
-     * This is why the defaults for these values are small; make them big for full onslaught.
+     * A rough estimate of the number of API calls necessary for a single admin growth cycle.
      */
     [JsonIgnore]
     public int UnitsOfWorkEstimate => InitialParentOrgsPerAdmin * InitialAdmins * InitialOrgsPerParent * (1 + InitialWorkersPerOrg);
@@ -160,13 +174,6 @@ public class WorkerConfig
         foreach (var item in WorkerTransactionsRoc.GetValidationMessages(nameof(WorkerConfig)))
             yield return item;
     }
-
-    ///*
-    // * A hint when trying to average out delays across a bunch of calls to the test subject api.
-    // * Look at the RunTransactions function in Worker if you want to double-check the math.
-    // */
-    //[JsonIgnore]
-    //public int UnitsOfWorkEstimate => TransactionsToCreatePerCycle + TransactionsToEvaluatePerCycle + 1;
 }
 
 public class RateOfChangeConfig
@@ -182,8 +189,8 @@ public class RateOfChangeConfig
             yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(InitialFrequencySeconds)}", 1);
         if (MinFrequencySeconds < 0)
             yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(MinFrequencySeconds)}", 0);
-        if (FrequencyToDecreaseIntervalSeconds < 5)
-            yield return ConfigMessageHandler.LessThanMessage(nameof(FrequencyToDecreaseIntervalSeconds), 5);
+        if (FrequencyToDecreaseIntervalSeconds < 1)
+            yield return ConfigMessageHandler.LessThanMessage(nameof(FrequencyToDecreaseIntervalSeconds), 1);
         if (AmountToDecreaseMs < 1)
             yield return ConfigMessageHandler.LessThanMessage($"{callerName}.{nameof(AmountToDecreaseMs)}", 1);
     }

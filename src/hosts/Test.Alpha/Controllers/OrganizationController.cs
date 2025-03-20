@@ -35,7 +35,6 @@ public class OrganizationController : ControllerBase
     [HttpPost("api/org")]
     public async Task<IActionResult> Upsert(Organization organization)
     {
-        _testMetricsService.IncrementOrganizations();
         await _organizationService.UpsertAsync(organization);
         return NoContent();
     }

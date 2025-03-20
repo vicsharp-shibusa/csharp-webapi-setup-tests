@@ -12,28 +12,18 @@ public class TestController : ControllerBase
 {
     private const string TestName = "Test.Alpha";
     private readonly TestMetricsService _testMetricsService;
-    private readonly IOperationContext _operationContext;
     private readonly IUserRepository _userRepository;
-    private readonly IOrganizationRepository _organizationRepository;
-    private readonly IUserTransactionRepository _transactionRepository;
     private readonly DbMaintenanceService _dbMaintenanceService;
     private readonly ILogger<TestController> _logger;
 
     public TestController(
-        IConfiguration config,
         TestMetricsService testMetricsService,
-        IOperationContext operationContext,
         IUserRepository userRepository,
-        IOrganizationRepository organizationRepository,
-        IUserTransactionRepository transactionRepository,
         DbMaintenanceService dbMaintenanceService,
         ILogger<TestController> logger)
     {
         _testMetricsService = testMetricsService;
-        _operationContext = operationContext;
         _userRepository = userRepository;
-        _organizationRepository = organizationRepository;
-        _transactionRepository = transactionRepository;
         _dbMaintenanceService = dbMaintenanceService;
         _logger = logger;
     }
@@ -88,13 +78,6 @@ public class TestController : ControllerBase
         var status = new TestStatus()
         {
             ResponseTimeThreshold = responseTimeThreshold,
-            MemoryCounts = new TestStatusCounts()
-            {
-                Admins = _testMetricsService.GetAdmins(),
-                Workers = _testMetricsService.GetWorkers(),
-                //Transactions = _testMetricsService.GetTransactions(),
-                //Organizations = _testMetricsService.GetOrganizations()
-            },
             DbCounts = await _dbMaintenanceService.CountRows(),
             ServiceInstantiations = _testMetricsService.GetInstantiationCounts(),
         };

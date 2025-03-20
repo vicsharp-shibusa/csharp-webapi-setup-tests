@@ -2,10 +2,9 @@
 
 namespace TestControl.AppServices;
 
-public class ResponseTimeHandler : DelegatingHandler
+public sealed class ResponseTimeHandler : DelegatingHandler
 {
-    //private double _runningSum;        // Sum of values in the "window"
-    //private int _count;                // Number of values added, up to maxPeriods
+    private ulong _totalMilliseconds;
     private readonly Queue<double> _responseTimes;
     private int _numberCalls;          // Total number of calls made by this handler
     private readonly int _maxPeriods;  // Number of values in the moving average
@@ -35,12 +34,15 @@ public class ResponseTimeHandler : DelegatingHandler
         var stopwatch = Stopwatch.StartNew();
         var response = await base.SendAsync(request, cancellationToken);
         stopwatch.Stop();
+
         double responseTimeMs = stopwatch.Elapsed.TotalMilliseconds;
 
         double ma;
         int count;
         lock (_lock)
         {
+            _totalMilliseconds += Convert.ToUInt64(responseTimeMs);
+
             if (_responseTimes.Count == _maxPeriods)
             {
                 _ = _responseTimes.Dequeue();
@@ -56,6 +58,7 @@ public class ResponseTimeHandler : DelegatingHandler
             ResponseTimeMs = responseTimeMs,
             MovingAverageMs = ma,
             NumberCalls = _numberCalls,
+            TotalResponseTime = TimeSpan.FromMicroseconds(_totalMilliseconds),
             Timestamp = ts,
             Message = $"[{DateTime.Now:HH:mm:ss}] [{responseTimeMs,8:F2}] [{ma,8:F2}] '{request.RequestUri?.AbsoluteUri}'"
         };
@@ -85,6 +88,7 @@ public class ResponseTimeHandler : DelegatingHandler
 
 public class ResponseTimeEventArgs : EventArgs
 {
+    public TimeSpan TotalResponseTime { get; init; }
     public double ResponseTimeMs { get; init; }
     public bool ThresholdExceeded { get; set; }
     public double MovingAverageMs { get; init; }

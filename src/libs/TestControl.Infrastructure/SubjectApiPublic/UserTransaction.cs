@@ -1,5 +1,8 @@
 ﻿namespace TestControl.Infrastructure.SubjectApiPublic;
 
+/// <summary>
+/// Represents a fictional unit of user work.
+/// </summary>
 public record UserTransaction
 {
     public Guid TransactionId { get; init; } = Guid.NewGuid();
@@ -9,7 +12,7 @@ public record UserTransaction
     public string TransactionType { get; init; } = "Testing";
     public string Account { get; init; }
     public decimal Amount { get; init; }
-    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-    public DateTime? ProcessedAt { get; init; }
+    public DateTimeOffset CreatedAt { get; init; } = DateTime.UtcNow;
+    public DateTimeOffset? ProcessedAt { get; set; }
     public string Status { get; set; }
 }

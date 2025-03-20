@@ -31,7 +31,7 @@ public static class TestDataCreationService
         };
     }
 
-    public static User CreateUser(Organization org = null, string role = Infrastructure.Constants.WorkerTypes.Worker)
+    public static User CreateUser(Organization org = null, string role = Constants.WorkerTypes.Worker)
     {
         var name = $"{GetUniqueString()} {GetUniqueString()}".Trim();
         var email = $"{name.Replace(" ", ".")}@test.org";

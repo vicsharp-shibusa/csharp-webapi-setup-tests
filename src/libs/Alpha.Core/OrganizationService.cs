@@ -28,7 +28,6 @@ public class OrganizationService : BaseService, IOrganizationService
 
     public Task InsertAsync(Organization organization)
     {
-        _testMetricsService.IncrementOrganizations();
         return UpsertAsync(organization);
     }
 

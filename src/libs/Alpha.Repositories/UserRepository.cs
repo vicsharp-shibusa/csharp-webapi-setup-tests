@@ -11,7 +11,6 @@ public class UserRepository : IUserRepository
 {
     private readonly IDbConnection _commandConnection;
     private readonly IDbConnection _queryConnection;
-    private readonly DbEngine _dbEngine;
     private readonly SqlProvider _sqlProvider;
 
     public UserRepository(DbProperties dbProperties,
@@ -21,7 +20,6 @@ public class UserRepository : IUserRepository
         testMetricsService?.IncrementClassInstantiation(nameof(UserRepository));
         _commandConnection = dbProperties.CommandConnection;
         _queryConnection = dbProperties.QueryConnection;
-        _dbEngine = dbProperties.DbEngine;
         _sqlProvider = sqlProvider;
     }
 
@@ -110,7 +108,7 @@ public class UserRepository : IUserRepository
                             OrganizationId = user.Organization.OrganizationId,
                             Role = user.Role ?? "Worker",
                             UserId = user.UserId,
-                            JoinedAt = user.CreatedAt
+                            JoinedAt = user.CreatedAt.UtcDateTime
                         }, transaction, cancellationToken: cancellationToken);
                 }
                 transaction.Commit();

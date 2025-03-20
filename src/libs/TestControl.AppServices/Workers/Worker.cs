@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using Microsoft.Identity.Client;
+using System.Net.Http.Json;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.SubjectApiPublic;
 
@@ -81,7 +82,6 @@ public sealed class Worker : TestWorkerBase
             delay = timeIsUp ? _config.MinDelay : timeLeft / (_config.Workers.TransactionsToEvaluatePerCycle + 1);
 
             var counter = 0;
-            List<Task> tasks = [];
             foreach (var pt in pendingTransactions)
             {
                 _linkedToken.ThrowIfCancellationRequested();
@@ -91,26 +91,20 @@ public sealed class Worker : TestWorkerBase
                 pt.Status = Random.Shared.Next(2) == 0 ? UserTransactionType.Approved.ToString()
                     : UserTransactionType.Denied.ToString();
 
-                tasks.Add(_httpClient.PutAsJsonAsync<UserTransaction>("api/transaction", pt, _linkedToken));
+                await _httpClient.PutAsJsonAsync<UserTransaction>("api/transaction", pt, _linkedToken);
                 counter++;
+
+                await Task.Delay(delay);
 
                 if (counter == _config.Workers.TransactionsToEvaluatePerCycle)
                     break;
-
-                if (timeIsUp)
-                    continue;
-
-                await Task.Delay(delay);
             }
-
-            await Task.WhenAll(tasks);
         }
 
         var curTime = DateTime.Now - startTime;
         if (curTime > totalTime)
         {
-            _cts.Cancel();
-            _isActive = false;
+            Stop();
             _messageHandler?.Invoke(new MessageToControlProgram()
             {
                 IsTestCancellation = true,
@@ -147,7 +141,11 @@ public sealed class Worker : TestWorkerBase
 
     public void Stop()
     {
-        _isActive = false;
-        _transactionTimer.Stop();
+        if (_isActive)
+        {
+            _isActive = false;
+            _transactionTimer.Stop();
+            _cts.Cancel();
+        }
     }
 }

@@ -9,7 +9,7 @@ using TestControl.Infrastructure.SubjectApiPublic;
 
 namespace TestControl.AppServices;
 
-public class TestRunner : IDisposable
+public sealed class TestRunner : IDisposable
 {
     private bool _disposedValue;
 
@@ -24,15 +24,9 @@ public class TestRunner : IDisposable
 
     private readonly MessageHandler _messageHandler;
 
-    private readonly System.Timers.Timer _queryTimer;
     private readonly System.Timers.Timer _statusTimer;
 
-    private readonly double _queryTimeWindowMs;
-
-    public TestRunner(
-        TestConfig config,
-        MessageHandler messageHandler,
-        CancellationToken cancellationToken)
+    public TestRunner(TestConfig config, MessageHandler messageHandler, CancellationToken cancellationToken)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _messageHandler = messageHandler ?? throw new ArgumentNullException(nameof(messageHandler));
@@ -40,48 +34,19 @@ public class TestRunner : IDisposable
         _cts = new CancellationTokenSource();
         _linkedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token).Token;
 
-        /* This "DelegatingHandler" (ResponseTimeHandler) addresses response time threshold violations
-         * and API failure status codes.
-         */
-        var innerHandler = new HttpClientHandler();
-        _responseTimeHandler = new ResponseTimeHandler(_config.ResponseThreshold.AverageResponseTimePeriod,
-            _config.ResponseThreshold.AverageResponseTimeThresholdMs, _cts)
-        {
-            InnerHandler = innerHandler
-        };
-
-        /*
-         * ResponseTimeHandler has two events - one for processed responses
-         * and one for the cancellation event, which means the response time threshold was reached.
-         */
-        _responseTimeHandler.OnResponseProcessed += (sender, args) =>
-        {
-            Communicate(args.Message);
-        };
-
-        _responseTimeHandler.OnCancellation += (sender, args) =>
-        {
-            _messageHandler(new MessageToControlProgram()
-            {
-                IsTestCancellation = true,
-                Message = args.Message,
-                MessageLevel = MessageLevel.Critical,
-                Source = nameof(ResponseTimeHandler),
-                ThreadId = Environment.CurrentManagedThreadId
-            });
-        };
+        _responseTimeHandler = CreateResponseTimeHandler();
 
         _httpClient = new HttpClient(_responseTimeHandler) { BaseAddress = new Uri(_config.Api.ApiBaseUrl) };
 
-        _queryTimeWindowMs = _config.Admins.AdminQueryRoc.InitialFrequencySeconds * 1000; // Convert seconds to ms
-        _queryTimer = new System.Timers.Timer(_queryTimeWindowMs) { AutoReset = true };
-        _queryTimer.Elapsed += QueryCycleCallback;
         _statusTimer = new(_config.StatusCheckIntervalSeconds * 1_000D) { AutoReset = true };
         _statusTimer.Elapsed += StatusCycleCallback;
     }
 
+    public string Status { get; private set; } = "Waiting";
+
     public async Task RunAsync()
     {
+        Status = "Running";
         Communicate("Test starting");
 
         if (_config.TestDurationMinutes > 0)
@@ -89,10 +54,18 @@ public class TestRunner : IDisposable
 
         _statusTimer.Start();
 
+        /*
+         * First we grow the admins at a steady pace until we reach our limit.
+         */
+        Status = "Phase 1; Admin growth";
         await GrowAdminsToLimit(_config.Admins.MaxAdmins);
 
+        /*
+         * Then we start compressing the time windows.
+         */
         try
         {
+            Status = "Phase 2: cycle compression";
             System.Timers.Timer adminRocQueryTimer = new(_config.Admins.AdminQueryRoc.FrequencyToDecreaseIntervalSeconds * 1_000D) { AutoReset = true };
             adminRocQueryTimer.Elapsed += (sender, e) => AdminRocQueryTimerCallback(sender, e);
             adminRocQueryTimer.Start();
@@ -100,11 +73,15 @@ public class TestRunner : IDisposable
             // Wait indefinitely until cancelled (or use TestDurationMinutes if preferred)
             await Task.Delay(Timeout.Infinite, _linkedToken);
             adminRocQueryTimer.Stop();
+            adminRocQueryTimer.Dispose();
+            Status = "Completed";
         }
         catch (OperationCanceledException)
         {
+            Status = "Cancelled";
             _messageHandler(new MessageToControlProgram
             {
+                IsTestCancellation = true,
                 Message = "Test cancelled.",
                 MessageLevel = MessageLevel.Error,
                 Source = nameof(TestRunner),
@@ -208,18 +185,17 @@ public class TestRunner : IDisposable
         if (!_isStopping)
         {
             _isStopping = true;
+            _cts.Cancel();
 
-            _queryTimer.Stop();
             _statusTimer.Stop();
 
             Parallel.ForEach(_admins, a => a.Stop());
-
-            _cts.Cancel();
         }
     }
 
     private void HandleFailure(string reason)
     {
+        Status = $"Failure: {reason}";
         _messageHandler(new MessageToControlProgram
         {
             Message = $"Test failed: {reason}",
@@ -239,22 +215,16 @@ public class TestRunner : IDisposable
     });
 
 
-    private void QueryCycleCallback(object sender, ElapsedEventArgs e)
+    private async void QueryCycleCallback(object sender, ElapsedEventArgs e)
     {
         if (_linkedToken.IsCancellationRequested)
             return;
 
         try
         {
-            var tasks = _admins.Select(admin => admin.RunQueriesAsync()).ToArray();
-
-            var completionTask = Task.WhenAll(tasks);
-            var timeoutTask = Task.Delay(TimeSpan.FromMilliseconds(_queryTimeWindowMs), _cts.Token);
-
-            if (Task.WhenAny(completionTask, timeoutTask).Result == timeoutTask)
+            foreach (var admin in _admins)
             {
-                HandleFailure($"Work in {nameof(QueryCycleCallback)} did not complete within time window");
-                return;
+                await admin.RunQueriesAsync();
             }
         }
         catch (Exception ex)
@@ -289,6 +259,7 @@ public class TestRunner : IDisposable
             var status = await response.Content.ReadFromJsonAsync<TestStatus>(JsonSerializerOptions.Web);
             status.MovingAvgResponseTime = _responseTimeHandler.CurrentResponseAverageMs;
             status.ResponseTimeThreshold = _config.ResponseThreshold.AverageResponseTimeThresholdMs;
+            status.Status = Status;
             return status;
         }
         catch (TaskCanceledException)
@@ -299,14 +270,13 @@ public class TestRunner : IDisposable
         }
     }
 
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
         if (!_disposedValue)
         {
             if (disposing)
             {
                 Stop();
-                _queryTimer.Dispose();
                 _statusTimer.Dispose();
                 _cts.Dispose();
             }
@@ -319,5 +289,41 @@ public class TestRunner : IDisposable
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
+    }
+
+    private ResponseTimeHandler CreateResponseTimeHandler()
+    {
+        /* This "DelegatingHandler" (ResponseTimeHandler) addresses response time threshold violations
+         * and API failure status codes.
+         */
+        var innerHandler = new HttpClientHandler();
+        var responseTimeHandler = new ResponseTimeHandler(_config.ResponseThreshold.AverageResponseTimePeriod,
+            _config.ResponseThreshold.AverageResponseTimeThresholdMs, _cts)
+        {
+            InnerHandler = innerHandler
+        };
+
+        /*
+         * ResponseTimeHandler has two events - one for processed responses
+         * and one for the cancellation event, which means the response time threshold was reached.
+         */
+        responseTimeHandler.OnResponseProcessed += (sender, args) =>
+        {
+            Communicate(args.Message);
+        };
+
+        responseTimeHandler.OnCancellation += (sender, args) =>
+        {
+            _messageHandler(new MessageToControlProgram()
+            {
+                IsTestCancellation = true,
+                Message = args.Message,
+                MessageLevel = MessageLevel.Critical,
+                Source = nameof(ResponseTimeHandler),
+                ThreadId = Environment.CurrentManagedThreadId
+            });
+        };
+
+        return responseTimeHandler;
     }
 }

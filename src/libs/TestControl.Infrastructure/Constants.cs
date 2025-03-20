@@ -41,6 +41,10 @@ public static class Constants
         public const string Worker = nameof(Worker);
     }
 
+    /// <summary>
+    /// Represents a set of URIs that are specific to the functionality of the tests.
+    /// These are all expected to be in the subject API, but they are not the only URIs expected.
+    /// </summary>
     public static class TestUris
     {
         public const string TestInitialize = "api/test/initialize";

@@ -34,13 +34,13 @@ public class UserService : BaseService, IUserService
         return _userRepository.GetForCustomerOrganizationAsync(customerOrgId);
     }
 
-    public async Task UpsertAsync(User user)
+    public Task UpsertAsync(User user)
     {
-        await _userRepository.UpsertAsync(user, GetOperationId().GetValueOrDefault());
+        return _userRepository.UpsertAsync(user, GetOperationId().GetValueOrDefault());
     }
 
-    public async Task UpsertTransactionAsync(UserTransaction transaction)
+    public Task UpsertTransactionAsync(UserTransaction transaction)
     {
-        await _userTransactionRepository.UpsertAsync(transaction, GetOperationId().GetValueOrDefault());
+        return _userTransactionRepository.UpsertAsync(transaction, GetOperationId().GetValueOrDefault());
     }
 }

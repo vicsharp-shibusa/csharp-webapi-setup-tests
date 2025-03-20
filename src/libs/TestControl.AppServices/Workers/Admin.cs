@@ -16,7 +16,7 @@ public sealed class Admin : TestWorkerBase
 
     private readonly System.Timers.Timer _queryTimer;
     private readonly Lock _timerLock = new();
-    private double _adminGrowthCycleTimeLimitMs;
+    private readonly double _adminGrowthCycleTimeLimitMs;
 
     public Admin(HttpClient httpClient,
         TestConfig config,
@@ -154,8 +154,6 @@ public sealed class Admin : TestWorkerBase
 
             if (targetInterval > 0 && targetInterval < currentInterval)
             {
-                _adminGrowthCycleTimeLimitMs = Math.Max(_config.Admins.AdminQueryRoc.MinFrequencySeconds * 1_000D, targetInterval);
-
                 _queryTimer.Stop();
                 _queryTimer.Interval = targetInterval;
                 _queryTimer.Start();
@@ -167,8 +165,14 @@ public sealed class Admin : TestWorkerBase
 
     public void Stop()
     {
-        _isActive = false;
-        _queryTimer.Stop();
+        if (_isActive)
+        {
+            _isActive = false;
+            _queryTimer.Stop();
+            _cts.Cancel();
+            Parallel.ForEach(_workers, w => w.Stop());
+        }
+
     }
 
     private async Task InitializeForFairness()
@@ -216,7 +220,7 @@ public sealed class Admin : TestWorkerBase
             await Parallel.ForEachAsync(_users, _linkedToken, async (u, token) =>
             {
                 await _httpClient.PostAsJsonAsync("api/user", u, token);
-                await Task.Delay(_config.MinDelayMs, token);
+                await Task.Delay(_config.MinDelay, token);
             });
         }
     }

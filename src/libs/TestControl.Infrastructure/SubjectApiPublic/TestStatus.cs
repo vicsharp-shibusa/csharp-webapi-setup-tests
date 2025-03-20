@@ -3,17 +3,20 @@ using System.Text;
 
 namespace TestControl.Infrastructure.SubjectApiPublic;
 
+/// <summary>
+/// Represents a snapshot status of a test cycle.
+/// </summary>
 public record TestStatus
 {
-    public DateTime TimeStamp { get; init; } = DateTime.Now;
-    public TestStatusCounts MemoryCounts { get; set; } = new();
+    public string Status { get; set; } = "Unknown";
+    public DateTimeOffset TimeStamp { get; init; } = DateTime.Now;
     public TestStatusCounts DbCounts { get; set; } = new();
     public double MovingAvgResponseTime { get; set; }
     public double ResponseTimeThreshold { get; set; }
     public MemoryUsage MemoryUsage { get; } = new();
     public long TotalServiceInstantiations => ServiceInstantiations.Values.Sum();
     public IDictionary<string, long> ServiceInstantiations { get; init; } = new Dictionary<string, long>();
-    public string Status
+    public string HealthStatus
     {
         get
         {
@@ -39,9 +42,8 @@ public record TestStatus
 
         sb.AppendLine($"{Boundary} STATUS UPDATE\t[{TimeStamp.ToLocalTime():HH:mm:ss}]");
         sb.AppendLine($"Status: {Status}");
+        sb.AppendLine($"Health Status: {HealthStatus}");
         sb.AppendLine(Divider);
-        sb.AppendLine("Memory Counts:");
-        sb.AppendLine(MemoryCounts.ToString());
         sb.AppendLine("DB Counts:");
         sb.AppendLine(DbCounts.ToString());
         sb.AppendLine(Divider);

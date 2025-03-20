@@ -22,11 +22,11 @@ class Program
 
     static async Task Main(string[] args)
     {
-        _cts = new CancellationTokenSource();
+        var executionTimer = Stopwatch.StartNew();
 
         Console.CancelKeyPress += HandleShutdown;
 
-        var executionTimer = Stopwatch.StartNew();
+        _cts = new CancellationTokenSource();
 
         try
         {
@@ -52,21 +52,17 @@ class Program
         catch (TaskCanceledException)
         {
             _exitCode ??= 1;
-            Communicate("Task cancelled");
+            Communicate($"Test was cancelled. {nameof(TaskCanceledException)}");
         }
         catch (OperationCanceledException)
         {
             _exitCode ??= 2;
-            Communicate("Test was cancelled.");
+            Communicate($"Test was cancelled. {nameof(OperationCanceledException)}");
         }
-        catch (AggregateException ex)
+        catch (AggregateException)
         {
             _exitCode ??= 3;
-            Communicate(ex);
-            foreach (var e in ex.InnerExceptions)
-            {
-                Communicate(e);
-            }
+            Communicate($"Test was cancelled. {nameof(AggregateException)}");
         }
         catch (Exception ex)
         {
@@ -75,11 +71,13 @@ class Program
         }
         finally
         {
+            _cts.Cancel();
             Communicate($"[{DateTime.Now:HH:mm:ss}] Shutting down.");
             TestStatus status = null;
 
             if (_testRunner != null)
             {
+                _testRunner.Stop();
                 using var httpClient = new HttpClient { BaseAddress = new Uri(_config.Api.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(30) };
                 try
                 {
@@ -89,12 +87,17 @@ class Program
                 {
                     Communicate($"[{DateTime.Now:HH:mm:ss}]]Status fetch timed out.");
                 }
+                catch (Exception exc)
+                {
+                    Console.WriteLine(exc);
+                }
             }
 
             if (status != null)
             {
                 var json = JsonSerializer.Serialize(new FinalReport()
                 {
+                    TestDuration = executionTimer.Elapsed,
                     Config = _config,
                     Status = status
                 }, new JsonSerializerOptions
@@ -114,12 +117,10 @@ class Program
                 await t;
             }
 
+            ShutdownCleanup();
             executionTimer.Stop();
             Communicate($"[{DateTime.Now:HH:mm:ss}] Program completed in {executionTimer.Elapsed.TotalMinutes:#,##0.00} minutes with exit code {_exitCode}");
-            _logFileManager?.CloseCurrentLogFile();
-            _logFileManager?.Dispose();
-            _testRunner?.Dispose();
-            _cts.Dispose();
+
 #if DEBUG
             Console.WriteLine("Hit ENTER to finish.");
             Console.ReadLine();
@@ -130,6 +131,7 @@ class Program
 
     private record FinalReport
     {
+        public TimeSpan TestDuration { get; init; }
         public TestConfig Config { get; init; }
         public TestStatus Status { get; init; }
     }
@@ -228,11 +230,16 @@ class Program
 
         if (badConfigSb.Length > 0)
         {
+            const string Prefix = "Configuration file failed validation checks.";
             const string Divider = "##############\r\n";
-            badConfigSb.Insert(0, $"Configuration file failed validation.{Environment.NewLine}{Divider}");
+            badConfigSb.Insert(0, $"{Prefix}{Environment.NewLine}{Divider}");
             badConfigSb.AppendLine(Divider);
-            Communicate(badConfigSb.ToString());
-            throw new InvalidOperationException("Configuration file failed validation checks.");
+
+            string excMessage = _verbose
+                ? badConfigSb.ToString()
+                : $"{Prefix} Use `-v` to see more details.";
+
+            throw new InvalidOperationException(excMessage);
         }
 
         var apiStatus = await CheckApiStatusAsync();
@@ -315,14 +322,21 @@ class Program
 
     private static void MessageHandler(MessageToControlProgram message)
     {
+        if (message.IsTestCancellation)
+            _cts.Cancel();
+
+        if (_saveLogs)
+            _logFileManager.WriteToLog(message);
+
         if (message.Exception != null)
         {
-            Console.WriteLine("[Error] A critical exception occurred.");
-            Console.WriteLine(message.Message ?? message.Exception.Message);
+            if (_verbose)
+                Console.WriteLine("[Error] A critical exception occurred.");
 #if DEBUG
             Console.WriteLine(message.Exception.ToString());
+#else
+            Console.WriteLine(message.Message ?? message.Exception.Message);
 #endif
-            _cts.Cancel();
         }
         else if (_verbose)
         {
@@ -330,7 +344,7 @@ class Program
             {
                 Console.ForegroundColor = message.MessageLevel switch
                 {
-                    MessageLevel.Info => ConsoleColor.Gray,
+                    MessageLevel.Info => ConsoleColor.White,
                     MessageLevel.Warning => ConsoleColor.Yellow,
                     MessageLevel.Critical or MessageLevel.Error => ConsoleColor.Red,
                     _ => ConsoleColor.White
@@ -340,33 +354,30 @@ class Program
                 Console.ResetColor();
             }
         }
-
-        if (_saveLogs)
-        {
-            _logFileManager.WriteToLog(message);
-        }
-
-        if (message.IsTestCancellation && !_cts.IsCancellationRequested)
-            _cts.Cancel();
     }
 
     private static void HandleShutdown(object sender, ConsoleCancelEventArgs e)
     {
         e.Cancel = true; // Prevents immediate termination
+        _cts.Cancel();
+
         Communicate("CTRL+C detected. Shutting down gracefully...");
-        _cts.Cancel(); // Signal cancellation
 
         Task.Run(async () =>
         {
-            await Task.Delay(Math.Max(0, _config.ShutdownDelayMs));
+            var t = Task.Delay(Math.Max(0, _config.ShutdownDelayMs));
             ShutdownCleanup();
-            Environment.Exit(0);
+            await t;
         });
+
+        Environment.Exit(0);
     }
 
     private static void ShutdownCleanup()
     {
         _logFileManager?.CloseCurrentLogFile();
-        Communicate("Shutdown complete.");
+        _logFileManager?.Dispose();
+        _testRunner?.Dispose();
+        _cts?.Dispose();
     }
 }

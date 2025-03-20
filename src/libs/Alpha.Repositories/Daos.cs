@@ -16,7 +16,7 @@ public record UserDao
         UserId = dto.UserId;
         Name = dto.Name;
         Email = dto.Email;
-        CreatedAt = dto.CreatedAt;
+        CreatedAt = dto.CreatedAt.UtcDateTime;
     }
 
     public User ToDto(Organization organization = null, string role = null) => new()
@@ -44,7 +44,7 @@ public record OrganizationDao
         OrganizationId = dto.OrganizationId;
         Name = dto.Name;
         ParentOrganizationId = dto.ParentOrganization?.OrganizationId;
-        CreatedAt = dto.CreatedAt;
+        CreatedAt = dto.CreatedAt.UtcDateTime;
     }
 
     public Organization ToDto(Organization parentOrg = null) => new()
@@ -86,9 +86,9 @@ public record UserTransactionDao
         OrganizationId = dto.Organization.OrganizationId;
         Account = dto.Account;
         Amount = dto.Amount;
-        CreatedAt = dto.CreatedAt;
+        CreatedAt = dto.CreatedAt.UtcDateTime;
         Status = dto.Status;
-        ProcessedAt = null;
+        ProcessedAt = dto.ProcessedAt?.UtcDateTime;
     }
 
     public UserTransaction ToDto(Organization organization, User user) => new()

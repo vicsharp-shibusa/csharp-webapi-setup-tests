@@ -2,6 +2,9 @@
 
 namespace TestControl.Infrastructure;
 
+/// <summary>
+/// Represents a set of <see cref="Stream"/> extensions to simplify writing text to the stream.
+/// </summary>
 public static class StreamExtensions
 {
     private static readonly Lock _writeLock = new();
@@ -42,7 +45,7 @@ public static class StreamExtensions
     /// </summary>
     public static void WriteLine(this Stream stream, string message = null)
     {
-        stream.Write($"{message ?? string.Empty}{Environment.NewLine}");
+        Write(stream, $"{message ?? string.Empty}{Environment.NewLine}");
     }
 
     /// <summary>
@@ -51,26 +54,8 @@ public static class StreamExtensions
     public static async Task WriteLineAsync(this Stream stream, string message = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         await WriteAsync(stream, $"{message ?? string.Empty}{Environment.NewLine}", cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Writes a timestamped log entry to the stream.
-    /// </summary>
-    public static void WriteLogEntry(this Stream stream, string message, string logLevel = "INFO")
-    {
-        string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{logLevel}] {message}";
-        stream.WriteLine(timestampedMessage);
-    }
-
-    /// <summary>
-    /// Writes a timestamped log entry asynchronously.
-    /// </summary>
-    public static async Task WriteLogEntryAsync(this Stream stream, string message, string logLevel = "INFO",
-        CancellationToken cancellationToken = default)
-    {
-        string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{logLevel}] {message}";
-        await WriteLineAsync(stream, timestampedMessage, cancellationToken).ConfigureAwait(false);
     }
 }

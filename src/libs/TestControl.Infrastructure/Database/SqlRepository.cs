@@ -12,6 +12,10 @@ namespace TestControl.Infrastructure.Database;
 /// </summary>
 public static class SqlKeys
 {
+    /// <summary>
+    /// Fetches all possible keys.
+    /// </summary>
+    /// <returns>A collection of keys.</returns>
     public static IEnumerable<string> GetKeys()
     {
         foreach (var f in typeof(SqlKeys).GetFields(BindingFlags.Public | BindingFlags.Static))
@@ -334,21 +338,16 @@ internal class SqlRepository
     };
 
     /// <summary>
-    /// Given a database engine and a version, construct a dictionary of
-    /// <see cref="SqlKeys"/> values and their corresponding SQL for the current instance.
-    /// SQL does not need to be present for each engine/version combination, but every key
-    /// requires an entry at the level of <paramref name="maxVersion"/> or lower.
-    /// As a best practice, add any new keys at level 1 and increment versions as needed.
-    /// In other words, running version 4 does not mean that you must have a statement for each
-    /// key with a version of 4; it rather means that your dictionary of SQL statements will not
-    /// have any versions greater than 4.
+    /// Constructs a dictionary of <see cref="SqlKeys"/> and their corresponding SQL statements 
+    /// for a given database engine and version. Each key must have an entry at or below 
+    /// <paramref name="maxVersion"/>, but SQL statements are not required for every 
+    /// engine/version combination. New keys should be added at version 1 and incremented as needed.
     /// </summary>
-    /// <param name="dbEngine">The database engine. Should map to <see cref="DbEngine"/>.
-    /// Originates in the configuration file input and/or environment variables.</param>
-    /// <param name="maxVersion">The version to be used in the current instance of the test.
-    /// </param>
-    /// <returns>A dictionary of keys and values intended for data access layer consumption./></returns>
-    /// <exception cref="Exception">Thrown if no SQL could be constructed for one of the keys.</exception>
+    /// <param name="dbEngine">The database engine from configuration or environment variables, 
+    /// mapping to <see cref="DbEngine"/>.</param>
+    /// <param name="maxVersion">The maximum version to consider for SQL statements in this instance.</param>
+    /// <returns>A dictionary of SQL statements for data access layer use.</returns>
+    /// <exception cref="Exception">Thrown if no SQL statement is found for any key up to <paramref name="maxVersion"/>.</exception>
     public IReadOnlyDictionary<string, string> BuildDictionary(DbEngine dbEngine, int maxVersion)
     {
         var results = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

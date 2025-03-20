@@ -36,16 +36,15 @@ public partial class TestLogFileManager : IDisposable
         if (!Directory.Exists(path))
             Directory.CreateDirectory(path);
 
-        StartTime = DateTime.Now;
         UniqueId = Guid.NewGuid().ToString("N")[0..9];
         _currentLogFilePath = BuildLogFilePath(Path.Combine(path, $"{StartTime:yyyyMMdd}_{UniqueId}_"));
         StartLogFile();
     }
 
-    public DateTime StartTime { get; }
+    public DateTimeOffset StartTime { get; init; } = DateTime.Now;
     public string UniqueId { get; }
     public string LogsDirectory { get; }
-
+    
     public void WriteToLog(MessageToControlProgram message)
     {
         if (_currentLogFileStream == null || !_currentLogFileStream.CanWrite)
@@ -138,7 +137,7 @@ public partial class TestLogFileManager : IDisposable
         {
             if (disposing)
             {
-                CloseCurrentLogFile();
+                //CloseCurrentLogFile();
                 _currentLogFileStream.Dispose();
             }
             _disposedValue = true;
@@ -147,7 +146,6 @@ public partial class TestLogFileManager : IDisposable
 
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
