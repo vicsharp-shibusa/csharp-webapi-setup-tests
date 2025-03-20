@@ -1,9 +1,20 @@
 # C# WebApi Setup Tests
 
-## Current Status 2025-03-14
+## Current Status 2025-03-19
 
-The first test architecture, `Test.Alpha` is (probably) complete and (mostly) stable. :)
-Both `Admin` and `Worker` are flushed out, but I need to do some larger-scale testing before I tackle `Test.Beta`.
+- This is the most stable version yet.
+The `Test.Alpha` architecture holds up pretty well, except that PostgreSQL can't handle all the concurrent connections I'm throwing at it.
+
+- In "Brute Force" mode, the test eventually fails because the **database can't handle the volume of concurrent connections**.
+I **pulled Dapper** out and rolled my own set of IDbConnection extensions.
+All the follows is related to chasing that rabbit.
+
+- **Made DbProperties disposable.**
+In `Test.Alpha`, the repositories (the data access components) and DbProperties are `Scoped`, therefore the db connections they hold are closed and disposed of at the end of the HttpRequest cycle.
+
+- Increased use of cancellation tokens.
+
+- The current version still **doesn't exit gracefully in all circumstances** - going to tackle that next.
 
 ## Quick Start
 
@@ -24,7 +35,7 @@ Here's the content of the `launchSettings.json` in my IDE.
   "profiles": {
     "TestControl.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "-v --save-logs -c ./configs/default-config.json -l /webapi-testing"
+      "commandLineArgs": "-v -c ./configs/default-config.json -l /webapi-testing --save-logs"
     }
   }
 }

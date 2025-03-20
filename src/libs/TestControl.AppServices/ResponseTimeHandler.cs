@@ -28,10 +28,7 @@ public class ResponseTimeHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
-        }
+        cancellationToken.ThrowIfCancellationRequested();
 
         Interlocked.Increment(ref _numberCalls);
 

@@ -1,10 +1,9 @@
 ﻿using Alpha.Common;
-using Dapper;
 using System.Data;
 using TestControl.AppServices;
-using TestControl.Infrastructure;
 using TestControl.Infrastructure.Database;
 using TestControl.Infrastructure.SubjectApiPublic;
+using TestControl.Infrastructure;
 
 namespace Alpha.Repositories;
 
@@ -15,85 +14,83 @@ public class OrganizationRepository : IOrganizationRepository
     private readonly DbEngine _dbEngine;
     private readonly SqlProvider _sqlProvider;
 
-    public OrganizationRepository(DbProperties dbProperties,
-        SqlProvider sqlProvider,
-        TestMetricsService testMetricsService)
+    public OrganizationRepository(DbProperties dbProperties, SqlProvider sqlProvider, TestMetricsService testMetricsService)
     {
+        testMetricsService?.IncrementClassInstantiation(nameof(OrganizationRepository));
         _commandConnection = dbProperties.CommandConnection;
         _queryConnection = dbProperties.QueryConnection;
         _dbEngine = dbProperties.DbEngine;
-        testMetricsService?.IncrementClassInstantiation(nameof(OrganizationRepository));
         _sqlProvider = sqlProvider;
     }
 
-    public async Task<IEnumerable<Organization>> GetAllOrgsAsync()
+    public async Task<IEnumerable<Organization>> GetAllOrgsAsync(CancellationToken cancellationToken = default)
     {
-        var orgDaos = await _queryConnection.QueryAsync<OrganizationDao>(_sqlProvider.GetSql(SqlKeys.GetAllOrganizations));
-
+        cancellationToken.ThrowIfCancellationRequested();
+        var orgDaos = (await _queryConnection.QueryAsync<OrganizationDao>(
+            _sqlProvider.GetSql(SqlKeys.GetAllOrganizations), cancellationToken: cancellationToken)).ToList();
+        _queryConnection.Close(); // Close early
         var orgDict = new Dictionary<Guid, Organization>();
 
-        foreach (var dao in orgDaos)
-        {
-            orgDict[dao.OrganizationId] = dao.ToDto();
-        }
-
-        foreach (var dao in orgDaos)
+        orgDaos.ForEach(dao => orgDict[dao.OrganizationId] = dao.ToDto()); // hydrate dictionary
+        orgDaos.ForEach(dao =>
         {
             var org = orgDict[dao.OrganizationId];
             if (dao.ParentOrganizationId.HasValue &&
-                orgDict.TryGetValue(dao.ParentOrganizationId.Value, out var parentOrg))
+                orgDict.TryGetValue(dao.ParentOrganizationId.Value, out var parentOrg)) // find parent in dictionary
             {
                 org.ParentOrganization = parentOrg;
             }
-        }
+        });
 
         return orgDict.Values;
     }
 
-    public async Task<Organization> GetByIdAsync(Guid organizationId)
+    public async Task<Organization> GetByIdAsync(Guid organizationId, CancellationToken cancellationToken = default)
     {
-        var parentOrgId = await _queryConnection.QuerySingleOrDefaultAsync<Guid?>(
-            _sqlProvider.GetSql(SqlKeys.GetParentOrgIdForOrgId), new { organizationId });
+        cancellationToken.ThrowIfCancellationRequested();
+        var parentOrgId = await _queryConnection.QuerySingleOrDefaultAsync<Guid?>(_sqlProvider.GetSql(SqlKeys.GetParentOrgIdForOrgId), new { organizationId }, cancellationToken: cancellationToken);
 
         Organization parentOrg = null;
         if (parentOrgId.HasValue)
         {
-            parentOrg = await GetByIdAsync(parentOrgId.Value);
+            parentOrg = await GetByIdAsync(parentOrgId.Value, cancellationToken);
         }
 
-        return (await _queryConnection.QuerySingleOrDefaultAsync<OrganizationDao>(
-            _sqlProvider.GetSql(SqlKeys.GetOrganizationById), new { OrganizationId = organizationId }))?.ToDto(parentOrg);
+        return (await _queryConnection.QuerySingleOrDefaultAsync<OrganizationDao>(_sqlProvider.GetSql(SqlKeys.GetOrganizationById), new { OrganizationId = organizationId }, cancellationToken: cancellationToken))?.ToDto(parentOrg);
+        // No close - scope handles it
     }
 
-    public async Task UpsertAsync(Organization organization, Guid operationId)
+    public async Task UpsertAsync(Organization organization, Guid operationId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (organization.ParentOrganization != null)
         {
-            await UpsertAsync(organization.ParentOrganization, operationId);
+            await UpsertAsync(organization.ParentOrganization, operationId, cancellationToken);
         }
-        await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertOrganization), new OrganizationDao(organization));
+
+        await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertOrganization), new OrganizationDao(organization), cancellationToken: cancellationToken);
+        // No close - scope handles it
     }
 
-    public async Task<Organization> GetOrganizationForUserAsync(Guid userId)
+    public async Task<Organization> GetOrganizationForUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var sql = _sqlProvider.GetSql(SqlKeys.GetOrganizationForUser);
         var parameters = new { UserId = userId };
-        var dao = await _queryConnection.QueryFirstOrDefaultAsync<OrganizationDao>(sql, parameters);
+        var dao = await _queryConnection.QueryFirstOrDefaultAsync<OrganizationDao>(sql, parameters, cancellationToken: cancellationToken);
+        _queryConnection.Close(); // Close early
         return dao?.ToDto();
     }
 
-    public async Task<IEnumerable<Organization>> GetByIdsAsync(IEnumerable<Guid> orgIds)
+    public async Task<IEnumerable<Organization>> GetByIdsAsync(IEnumerable<Guid> orgIds, CancellationToken cancellationToken = default)
     {
-        // Define the SQL query based on the database engine
+        cancellationToken.ThrowIfCancellationRequested();
         var sql = _dbEngine == DbEngine.MSSQL
             ? "SELECT OrganizationId, Name, ParentOrganizationId, CreatedAt FROM Organizations WHERE OrganizationId IN @OrgIds"
             : "SELECT organizationid, name, parentorganizationid, createdat FROM organizations WHERE organizationid = ANY(@OrgIds)";
-
-        // Execute the query with the list of OrgIds
         var parameters = new { OrgIds = orgIds.ToList() };
-        var daos = await _queryConnection.QueryAsync<OrganizationDao>(sql, parameters);
-
-        // Map DAOs to DTOs
+        var daos = await _queryConnection.QueryAsync<OrganizationDao>(sql, parameters, cancellationToken: cancellationToken);
+        _queryConnection.Close(); // Close early
         return daos.Select(dao => dao.ToDto());
     }
 }

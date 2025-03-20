@@ -1,10 +1,10 @@
 {
-  "mode": "Fair",
-  "minDelayMs": 10,
-  "testDurationMinutes": 60,
+  "mode": "Brute Force",
+  "minDelayMs": 50,
+  "testDurationMinutes": 5,
   "shutdownDelayMs": 1000,
   "warmupCycles": 5,
-  "statusCheckIntervalSeconds": 300,
+  "statusCheckIntervalSeconds": 20,
   "api": {
     "apiBaseUrl": "https://localhost:5260",
     "apiName": "Test.Alpha",
@@ -12,8 +12,8 @@
     "databaseVersion": "db1"
   },
   "admins": {
-    "maxAdmins": 500,
-    "initialAdmins": 1,
+    "maxAdmins": 100,
+    "initialAdmins": 100,
     "initialOrgsPerParent": 1,
     "initialParentOrgsPerAdmin": 1,
     "initialWorkersPerOrg": 2,

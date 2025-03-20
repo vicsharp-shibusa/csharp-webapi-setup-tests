@@ -30,7 +30,7 @@ public static class StreamExtensions
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (stream.CanWrite && !string.IsNullOrEmpty(message) && !cancellationToken.IsCancellationRequested)
+        if (stream.CanWrite && !string.IsNullOrEmpty(message))
         {
             Memory<byte> buffer = Encoding.UTF8.GetBytes(message);
             await stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);

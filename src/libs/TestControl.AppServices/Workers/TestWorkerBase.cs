@@ -21,6 +21,7 @@ public abstract class TestWorkerBase
         MessageHandler messageHandler,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _messageHandler = messageHandler ?? throw new ArgumentNullException(nameof(messageHandler));

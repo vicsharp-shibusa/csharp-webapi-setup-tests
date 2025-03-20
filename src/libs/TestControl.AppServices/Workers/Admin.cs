@@ -114,6 +114,7 @@ public sealed class Admin : TestWorkerBase
 
             var query = queries[Random.Shared.Next(queries.Length)];
 
+            
             _ = await _httpClient.GetAsync(query, _linkedToken);
 
             if (timeIsUp || delay == _config.MinDelay)
@@ -206,17 +207,16 @@ public sealed class Admin : TestWorkerBase
 
     private async Task InitializeForBruteForce()
     {
-        if (_linkedToken.IsCancellationRequested)
-            return;
+        _linkedToken.ThrowIfCancellationRequested();
 
         HydrateData();
 
         if (_users.Count > 0)
         {
-            await Parallel.ForEachAsync(_users, async (u, token) =>
+            await Parallel.ForEachAsync(_users, _linkedToken, async (u, token) =>
             {
                 await _httpClient.PostAsJsonAsync("api/user", u, token);
-                await Task.Delay(_config.MinDelayMs);
+                await Task.Delay(_config.MinDelayMs, token);
             });
         }
     }

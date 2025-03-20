@@ -175,7 +175,7 @@ public class UserRepositoryTests : TestBase
             await _userRepository.UpsertAsync(u, Guid.NewGuid());
         }
 
-        var fromDb = (await _userRepository.GetForustomerOrganizationAsync(org.OrganizationId)).ToArray();
+        var fromDb = (await _userRepository.GetForCustomerOrganizationAsync(org.OrganizationId)).ToArray();
 
         Assert.NotNull(fromDb);
         Assert.Equal(users.Length, fromDb.Length);
@@ -184,7 +184,7 @@ public class UserRepositoryTests : TestBase
     [Fact]
     public async Task GetForOrganizationAsync_InvalidOrg_NoResults()
     {
-        var usersInOrg = await _userRepository.GetForustomerOrganizationAsync(Guid.NewGuid());
+        var usersInOrg = await _userRepository.GetForCustomerOrganizationAsync(Guid.NewGuid());
         Assert.NotNull(usersInOrg);
         Assert.Empty(usersInOrg);
     }

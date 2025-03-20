@@ -10,7 +10,8 @@ public sealed class Worker : TestWorkerBase
     private double _transactionCycleTimeLimitMs;
     private readonly Lock _timerLock = new();
 
-    public Worker(HttpClient httpClient, TestConfig config, MessageHandler messageHandler, User user, CancellationToken cancellationToken) :
+    public Worker(HttpClient httpClient, TestConfig config,
+        MessageHandler messageHandler, User user, CancellationToken cancellationToken) :
         base(httpClient, config, messageHandler, cancellationToken)
     {
         _self = user;
@@ -26,8 +27,7 @@ public sealed class Worker : TestWorkerBase
 
     public Task InitializeAsync()
     {
-        if (_linkedToken.IsCancellationRequested)
-            return Task.CompletedTask;
+        _linkedToken.ThrowIfCancellationRequested();
 
         _isActive = true;
         _transactionTimer.Start();
@@ -37,7 +37,9 @@ public sealed class Worker : TestWorkerBase
 
     public async Task RunTransactionsAsync()
     {
-        if (!_isActive || _linkedToken.IsCancellationRequested)
+        _linkedToken.ThrowIfCancellationRequested();
+
+        if (!_isActive)
             return;
 
         var transactionsToAdd = new UserTransaction[_config.Workers.TransactionsToCreatePerCycle];
@@ -50,14 +52,13 @@ public sealed class Worker : TestWorkerBase
             transactionsToAdd[i] = TestDataCreationService.CreateTransaction(_self, UserTransactionType.Pending.ToString());
         }
 
-        var timeLeft = (totalTime - (DateTime.Now - startTime)) / 3D; // cut by a third because part 2 (seel below) is the heavier workload.
+        var timeLeft = (totalTime - (DateTime.Now - startTime)) / 3D; // cut by a third because part 2 (see below) is the heavier workload.
         bool timeIsUp = timeLeft <= _config.MinDelay || _mode == Mode.BruteForce;
         var delay = timeIsUp ? _config.MinDelay : timeLeft / (_config.Workers.TransactionsToCreatePerCycle + 1); // +1 buffer
 
         foreach (var transaction in transactionsToAdd)
         {
-            if (_linkedToken.IsCancellationRequested)
-                break;
+            _linkedToken.ThrowIfCancellationRequested();
 
             var response = await _httpClient.PostAsJsonAsync("api/transaction", transaction, _linkedToken);
 
@@ -67,8 +68,10 @@ public sealed class Worker : TestWorkerBase
             await Task.Delay(delay);
         }
 
+        _linkedToken.ThrowIfCancellationRequested();
+
         var pendingTransactions = (await _httpClient.GetFromJsonAsync<IEnumerable<UserTransaction>>(
-            $"api/organization/{_self.Organization.OrganizationId}/transactions?status=Pending"))
+            $"api/organization/{_self.Organization.OrganizationId}/transactions?status=Pending", _linkedToken))
             .Where(x => !x.User.UserId.Equals(_self.UserId)).ToArray();
 
         if (pendingTransactions.Length > 0)
@@ -81,13 +84,14 @@ public sealed class Worker : TestWorkerBase
             List<Task> tasks = [];
             foreach (var pt in pendingTransactions)
             {
-                if (_linkedToken.IsCancellationRequested || !_isActive || counter == _config.Workers.TransactionsToEvaluatePerCycle)
+                _linkedToken.ThrowIfCancellationRequested();
+                if (!_isActive || counter == _config.Workers.TransactionsToEvaluatePerCycle)
                     break;
 
                 pt.Status = Random.Shared.Next(2) == 0 ? UserTransactionType.Approved.ToString()
                     : UserTransactionType.Denied.ToString();
 
-                tasks.Add(_httpClient.PutAsJsonAsync<UserTransaction>("api/transaction", pt));
+                tasks.Add(_httpClient.PutAsJsonAsync<UserTransaction>("api/transaction", pt, _linkedToken));
                 counter++;
 
                 if (counter == _config.Workers.TransactionsToEvaluatePerCycle)

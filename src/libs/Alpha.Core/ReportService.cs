@@ -28,7 +28,7 @@ public class ReportService : BaseService, IReportService
 
     public async Task<IEnumerable<User>> GetUsersForOrgAsync(Guid orgId)
     {
-        return await _userRepository.GetForustomerOrganizationAsync(orgId);
+        return await _userRepository.GetForCustomerOrganizationAsync(orgId);
     }
 
     public async Task<IEnumerable<UserTransaction>> GetTransactionsForOrgAsync(Guid orgId, DateTime? start = null, DateTime? finish = null, string status = null)

@@ -1,117 +1,128 @@
 ﻿using Alpha.Common;
-using Dapper;
 using System.Data;
 using TestControl.AppServices;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.Database;
 using TestControl.Infrastructure.SubjectApiPublic;
 
-namespace Alpha.Repositories
+namespace Alpha.Repositories;
+
+public class UserRepository : IUserRepository
 {
-    public class UserRepository : IUserRepository
+    private readonly IDbConnection _commandConnection;
+    private readonly IDbConnection _queryConnection;
+    private readonly DbEngine _dbEngine;
+    private readonly SqlProvider _sqlProvider;
+
+    public UserRepository(DbProperties dbProperties,
+        SqlProvider sqlProvider,
+        TestMetricsService testMetricsService)
     {
-        private readonly IDbConnection _commandConnection;
-        private readonly IDbConnection _queryConnection;
-        private readonly DbEngine _dbEngine;
-        private readonly SqlProvider _sqlProvider;
+        testMetricsService?.IncrementClassInstantiation(nameof(UserRepository));
+        _commandConnection = dbProperties.CommandConnection;
+        _queryConnection = dbProperties.QueryConnection;
+        _dbEngine = dbProperties.DbEngine;
+        _sqlProvider = sqlProvider;
+    }
 
-        public UserRepository(DbProperties dbProperties,
-            SqlProvider sqlProvider,
-            TestMetricsService testMetricsService)
+    public async Task<User> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var userId = await _queryConnection.QuerySingleOrDefaultAsync<Guid?>(_sqlProvider.GetSql(SqlKeys.GetUserIdForEmail), new { Email = email }, cancellationToken: cancellationToken);
+
+        if (userId.HasValue)
         {
-            _commandConnection = dbProperties.CommandConnection;
-            _queryConnection = dbProperties.QueryConnection;
-            _dbEngine = dbProperties.DbEngine;
-            testMetricsService?.IncrementClassInstantiation(nameof(UserRepository));
-            _sqlProvider = sqlProvider;
+            return await GetByIdAsync(userId.Value, cancellationToken);
         }
 
-        public async Task<User> GetByEmailAsync(string email)
+        return null;
+    }
+
+    public async Task<User> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var orgsForUser = (await _queryConnection.QueryAsync<OrganizationUserDao>(_sqlProvider.GetSql(SqlKeys.GetOrganizationsForUser), new { userId }, cancellationToken: cancellationToken)).ToArray();
+
+        Guid? orgId = null;
+        string role = null;
+
+        if (orgsForUser.Length > 0)
         {
-            var userId = await _queryConnection.QuerySingleOrDefaultAsync<Guid?>(
-                _sqlProvider.GetSql(SqlKeys.GetUserIdForEmail), new { Email = email });
-
-            if (userId.HasValue)
-            {
-                return await GetByIdAsync(userId.Value);
-            }
-
-            return null;
+            orgId = orgsForUser[0].OrganizationId;
+            role = orgsForUser[0].Role;
         }
 
-        public async Task<User> GetByIdAsync(Guid userId)
+        Organization userOrg = null;
+        Organization parentOrg = null;
+
+        if (orgId.HasValue)
         {
-            var orgsForUser = (await _queryConnection.QueryAsync<OrganizationUserDao>(
-                _sqlProvider.GetSql(SqlKeys.GetOrganizationsForUser),
-                new { userId })).ToArray();
+            var orgDao = await _queryConnection.QueryFirstOrDefaultAsync<OrganizationDao>(_sqlProvider.GetSql(SqlKeys.GetOrganizationById), new { OrganizationId = orgId.Value }, cancellationToken: cancellationToken);
 
-            Guid? orgId = null;
-            string role = null;
-
-            if (orgsForUser.Length > 0)
+            if (orgDao != null && orgDao.ParentOrganizationId.HasValue)
             {
-                orgId = orgsForUser[0].OrganizationId;
-                role = orgsForUser[0].Role;
+                var parentOrgDao = await _queryConnection.QueryFirstOrDefaultAsync<OrganizationDao>(_sqlProvider.GetSql(SqlKeys.GetOrganizationById), new { OrganizationId = orgDao.ParentOrganizationId.Value }, cancellationToken: cancellationToken);
+
+                parentOrg = parentOrgDao?.ToDto(null);
             }
 
-            Organization userOrg = null;
-            Organization parentOrg = null;
+            userOrg = orgDao?.ToDto(parentOrg);
+        }
 
-            if (orgId.HasValue)
+        var userDao = await _queryConnection.QueryFirstOrDefaultAsync<UserDao>(_sqlProvider.GetSql(SqlKeys.GetUserById), new { userId }, cancellationToken: cancellationToken);
+
+        _queryConnection.Close();
+        return userDao?.ToDto(userOrg, role);
+    }
+
+    public async Task<IEnumerable<User>> GetForCustomerOrganizationAsync(Guid customerOrgId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return (await _queryConnection.QueryAsync<UserDao>(_sqlProvider.GetSql(SqlKeys.GetUsersForOrganization), new { CustomerOrgId = customerOrgId }, cancellationToken: cancellationToken))
+            .Select(k => k.ToDto());
+    }
+
+    public async Task UpsertAsync(User user, Guid operationId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await _commandConnection.EnsureOpenConnectionAsync(cancellationToken);
+
+        using (var transaction = await DbProperties.CreateTransactionAsync(_commandConnection, cancellationToken))
+        {
+            try
             {
-                var orgDao = await _queryConnection.QueryFirstOrDefaultAsync<OrganizationDao>(
-                    _sqlProvider.GetSql(SqlKeys.GetOrganizationById),
-                    new { OrganizationId = orgId.Value });
-
-                if (orgDao != null && orgDao.ParentOrganizationId.HasValue)
+                if (user.Organization != null)
                 {
-                    var parentOrgDao = await _queryConnection.QueryFirstOrDefaultAsync<OrganizationDao>(
-                        _sqlProvider.GetSql(SqlKeys.GetOrganizationById), new { OrganizationId = orgDao.ParentOrganizationId.Value });
-
-                    parentOrg = parentOrgDao?.ToDto(null);
-                }
-
-                userOrg = orgDao?.ToDto(parentOrg);
-            }
-
-            var userDao = await _queryConnection.QueryFirstOrDefaultAsync<UserDao>(
-                _sqlProvider.GetSql(SqlKeys.GetUserById), new { userId });
-
-            return userDao?.ToDto(userOrg, role);
-        }
-
-        public async Task<IEnumerable<User>> GetForustomerOrganizationAsync(Guid customerOrgId)
-        {
-            return await _queryConnection.QueryAsync<User>(
-                _sqlProvider.GetSql(SqlKeys.GetUsersForOrganization), new { CustomerOrgId = customerOrgId });
-        }
-
-        public async Task UpsertAsync(User user, Guid operationId)
-        {
-            if (user.Organization != null)
-            {
-                if (user.Organization.ParentOrganization != null)
-                {
-                    await _commandConnection.ExecuteAsync(
-                        _sqlProvider.GetSql(SqlKeys.UpsertOrganization),
-                        new OrganizationDao(user.Organization.ParentOrganization));
-                }
-                await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertOrganization),
-                    new OrganizationDao(user.Organization));
-            }
-
-            await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertUser), new UserDao(user));
-
-            if (user.Organization != null)
-            {
-                await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertOrganizationUser),
-                    new OrganizationUserDao()
+                    if (user.Organization.ParentOrganization != null)
                     {
-                        OrganizationId = user.Organization.OrganizationId,
-                        Role = user.Role ?? "Worker",
-                        UserId = user.UserId,
-                        JoinedAt = user.CreatedAt
-                    });
+                        await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertOrganization), new OrganizationDao(user.Organization.ParentOrganization), transaction, cancellationToken: cancellationToken);
+                    }
+                    await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertOrganization), new OrganizationDao(user.Organization), transaction, cancellationToken: cancellationToken);
+                }
+
+                await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertUser), new UserDao(user), transaction, cancellationToken: cancellationToken);
+
+                if (user.Organization != null)
+                {
+                    await _commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.UpsertOrganizationUser), new OrganizationUserDao()
+                        {
+                            OrganizationId = user.Organization.OrganizationId,
+                            Role = user.Role ?? "Worker",
+                            UserId = user.UserId,
+                            JoinedAt = user.CreatedAt
+                        }, transaction, cancellationToken: cancellationToken);
+                }
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+            finally
+            {
+                _commandConnection.Close();
             }
         }
     }

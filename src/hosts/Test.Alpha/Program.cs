@@ -35,7 +35,7 @@ if (!Enum.TryParse(dbEngine, true, out DbEngine engine))
 
 // Parse dbVersion (assuming it’s in a format like "db1", adjust as needed)
 if (!dbVersion.StartsWith("db", StringComparison.OrdinalIgnoreCase) ||
-    !int.TryParse(dbVersion.Substring(2), out int version))
+    !int.TryParse(dbVersion.AsSpan(2), out int version))
 {
     throw new InvalidOperationException($"Invalid database version: {dbVersion}");
 }

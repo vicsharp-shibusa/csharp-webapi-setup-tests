@@ -31,7 +31,7 @@ public class UserService : BaseService, IUserService
 
     public Task<IEnumerable<User>> GetForOrganizationAsync(Guid customerOrgId)
     {
-        return _userRepository.GetForustomerOrganizationAsync(customerOrgId);
+        return _userRepository.GetForCustomerOrganizationAsync(customerOrgId);
     }
 
     public async Task UpsertAsync(User user)

@@ -1,8 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
+﻿namespace Test.Alpha.Middleware;
 
-namespace Test.Alpha.Middleware;
 public class RequestLoggingMiddleware
 {
     private readonly RequestDelegate _next;
@@ -17,7 +14,7 @@ public class RequestLoggingMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // Log request details
-        _logger.LogInformation("Incoming request: {Method} {Path} from {RemoteIp}",
+        _logger.LogInformation("{Method} {Path} from {RemoteIp}",
             context.Request.Method,
             context.Request.Path,
             context.Connection.RemoteIpAddress);
