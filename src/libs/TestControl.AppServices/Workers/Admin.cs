@@ -38,8 +38,11 @@ public sealed class Admin : TestWorkerBase
 
     public async Task InitializeAsync()
     {
+        _isActive = false;
         if (_linkedToken.IsCancellationRequested)
             return;
+
+        _isActive = true;
 
         var totalTime = TimeSpan.FromMilliseconds(_adminGrowthCycleTimeLimitMs);
         var startTime = DateTime.Now;
@@ -55,8 +58,7 @@ public sealed class Admin : TestWorkerBase
         var curTime = DateTime.Now - startTime;
         if (curTime > totalTime)
         {
-            _isActive = false;
-            _cts.Cancel();
+            Stop();
             _messageHandler?.Invoke(new MessageToControlProgram()
             {
                 IsTestCancellation = true,
@@ -71,18 +73,12 @@ public sealed class Admin : TestWorkerBase
         _orgIds = [.. _orgs.Select(x => x.OrganizationId)];
         _workerIds = [.. _workers.Select(x => x.UserId)];
 
-        if (!_linkedToken.IsCancellationRequested)
-        {
-            _isActive = true;
-            var t = RunQueriesAsync();
-            _queryTimer.Start();
-            await t;
-        }
+        _queryTimer.Start();
     }
 
     public async Task RunQueriesAsync()
     {
-        if (!_isActive || _linkedToken.IsCancellationRequested || _orgIds.Length == 0 || _workerIds.Length == 0)
+        if (!ShouldContinue || _orgIds.Length == 0 || _workerIds.Length == 0)
             return;
 
         var totalTime = TimeSpan.FromMilliseconds(_adminGrowthCycleTimeLimitMs);
@@ -109,25 +105,31 @@ public sealed class Admin : TestWorkerBase
 
         for (int i = 0; i < _config.Admins.ReportsToRunPerCycle; i++)
         {
-            if (_linkedToken.IsCancellationRequested || !_isActive)
+            if (!ShouldContinue)
                 break;
 
             var query = queries[Random.Shared.Next(queries.Length)];
 
-            
-            _ = await _httpClient.GetAsync(query, _linkedToken);
+            try
+            {
+                var result = await _httpClient.GetAsync(query, _linkedToken);
+                var content = await result.Content.ReadAsStringAsync();
+            }
+            catch (TaskCanceledException)
+            {
+                break;
+            }
 
-            if (timeIsUp || delay == _config.MinDelay)
+            if (timeIsUp)
                 continue;
 
             await Task.Delay(delay);
         }
 
         var curTime = DateTime.Now - startTime;
-        if (curTime > totalTime && !_linkedToken.IsCancellationRequested)
+        if (curTime > totalTime)
         {
-            _cts.Cancel();
-            _isActive = false;
+            Stop();
             _messageHandler?.Invoke(new MessageToControlProgram()
             {
                 IsTestCancellation = true,
@@ -141,7 +143,7 @@ public sealed class Admin : TestWorkerBase
 
     public async Task CompressIntervalsAsync()
     {
-        if (_linkedToken.IsCancellationRequested)
+        if (!ShouldContinue)
             return;
 
         var t = Task.Run(() => Parallel.ForEachAsync(_workers, async (w, t) => await w.CompressIntervalsAsync()));
@@ -167,17 +169,15 @@ public sealed class Admin : TestWorkerBase
     {
         if (_isActive)
         {
-            _isActive = false;
             _queryTimer.Stop();
-            _cts.Cancel();
+            _isActive = false;
             Parallel.ForEach(_workers, w => w.Stop());
         }
-
     }
 
     private async Task InitializeForFairness()
     {
-        if (_linkedToken.IsCancellationRequested)
+        if (!ShouldContinue)
             return;
 
         var startTime = DateTime.Now;
@@ -193,7 +193,7 @@ public sealed class Admin : TestWorkerBase
         bool timeIsUp = delay <= _config.MinDelay;
         foreach (var user in _users)
         {
-            if (_linkedToken.IsCancellationRequested)
+            if (!ShouldContinue)
                 break;
 
             var response = await _httpClient.PostAsJsonAsync("api/user", user, _linkedToken);
@@ -211,7 +211,8 @@ public sealed class Admin : TestWorkerBase
 
     private async Task InitializeForBruteForce()
     {
-        _linkedToken.ThrowIfCancellationRequested();
+        if (!ShouldContinue)
+            return;
 
         HydrateData();
 
@@ -219,8 +220,15 @@ public sealed class Admin : TestWorkerBase
         {
             await Parallel.ForEachAsync(_users, _linkedToken, async (u, token) =>
             {
-                await _httpClient.PostAsJsonAsync("api/user", u, token);
-                await Task.Delay(_config.MinDelay, token);
+                try
+                {
+                    await _httpClient.PostAsJsonAsync("api/user", u, token);
+                    await Task.Delay(_config.MinDelay, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    
+                }
             });
         }
     }

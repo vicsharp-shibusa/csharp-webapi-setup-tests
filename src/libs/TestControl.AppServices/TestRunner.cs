@@ -26,6 +26,8 @@ public sealed class TestRunner : IDisposable
 
     private readonly System.Timers.Timer _statusTimer;
 
+    private bool _isRunning = false;
+
     public TestRunner(TestConfig config, MessageHandler messageHandler, CancellationToken cancellationToken)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -46,6 +48,7 @@ public sealed class TestRunner : IDisposable
 
     public async Task RunAsync()
     {
+        _isRunning = true;
         Status = "Running";
         Communicate("Test starting");
 
@@ -76,7 +79,7 @@ public sealed class TestRunner : IDisposable
             adminRocQueryTimer.Dispose();
             Status = "Completed";
         }
-        catch (OperationCanceledException)
+        catch
         {
             Status = "Cancelled";
             _messageHandler(new MessageToControlProgram
@@ -175,21 +178,19 @@ public sealed class TestRunner : IDisposable
         }
     }
 
-    private bool _isStopping = false;
-
     /// <summary>
     /// Stops the test and all admin activities.
     /// </summary>
     public void Stop()
     {
-        if (!_isStopping)
+        if (_isRunning)
         {
-            _isStopping = true;
-            _cts.Cancel();
+            _isRunning = false;
 
             _statusTimer.Stop();
 
             Parallel.ForEach(_admins, a => a.Stop());
+            _cts.Cancel();
         }
     }
 
@@ -252,22 +253,13 @@ public sealed class TestRunner : IDisposable
     {
         httpClient ??= _httpClient;
 
-        try
-        {
-            var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get,
-                $"{Constants.TestUris.Status}?responseTimeThreshold={_config.ResponseThreshold.AverageResponseTimeThresholdMs}"));
-            var status = await response.Content.ReadFromJsonAsync<TestStatus>(JsonSerializerOptions.Web);
-            status.MovingAvgResponseTime = _responseTimeHandler.CurrentResponseAverageMs;
-            status.ResponseTimeThreshold = _config.ResponseThreshold.AverageResponseTimeThresholdMs;
-            status.Status = Status;
-            return status;
-        }
-        catch (TaskCanceledException)
-        {
-            // Log timeout and return null or a default status
-            Console.WriteLine($"Status fetch timed out at {DateTime.Now:HH:mm:ss}");
-            return new TestStatus { /* Default values */ };
-        }
+        var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get,
+            $"{Constants.TestUris.Status}?responseTimeThreshold={_config.ResponseThreshold.AverageResponseTimeThresholdMs}"));
+        var status = await response.Content.ReadFromJsonAsync<TestStatus>(JsonSerializerOptions.Web);
+        status.MovingAvgResponseTime = _responseTimeHandler.CurrentResponseAverageMs;
+        status.ResponseTimeThreshold = _config.ResponseThreshold.AverageResponseTimeThresholdMs;
+        status.Status = Status;
+        return status;
     }
 
     private void Dispose(bool disposing)

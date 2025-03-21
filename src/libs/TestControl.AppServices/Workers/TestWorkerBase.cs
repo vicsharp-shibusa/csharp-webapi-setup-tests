@@ -42,4 +42,6 @@ public abstract class TestWorkerBase
             return _name;
         }
     }
+
+    protected bool ShouldContinue => _isActive && !_linkedToken.IsCancellationRequested;
 }

@@ -1,5 +1,4 @@
-﻿using Microsoft.Identity.Client;
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.SubjectApiPublic;
 
@@ -28,7 +27,10 @@ public sealed class Worker : TestWorkerBase
 
     public Task InitializeAsync()
     {
-        _linkedToken.ThrowIfCancellationRequested();
+        _isActive = false;
+
+        if (_linkedToken.IsCancellationRequested)
+            return Task.CompletedTask;
 
         _isActive = true;
         _transactionTimer.Start();
@@ -38,9 +40,7 @@ public sealed class Worker : TestWorkerBase
 
     public async Task RunTransactionsAsync()
     {
-        _linkedToken.ThrowIfCancellationRequested();
-
-        if (!_isActive)
+        if (!ShouldContinue)
             return;
 
         var transactionsToAdd = new UserTransaction[_config.Workers.TransactionsToCreatePerCycle];
@@ -59,9 +59,18 @@ public sealed class Worker : TestWorkerBase
 
         foreach (var transaction in transactionsToAdd)
         {
-            _linkedToken.ThrowIfCancellationRequested();
+            if (!ShouldContinue)
+                break;
 
-            var response = await _httpClient.PostAsJsonAsync("api/transaction", transaction, _linkedToken);
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync("api/transaction", transaction, _linkedToken);
+                var forcedComputation = await response.Content.ReadAsStringAsync();
+            }
+            catch (TaskCanceledException)
+            {
+                break;
+            }
 
             if (timeIsUp)
                 continue;
@@ -69,36 +78,40 @@ public sealed class Worker : TestWorkerBase
             await Task.Delay(delay);
         }
 
-        _linkedToken.ThrowIfCancellationRequested();
+        if (!ShouldContinue)
+            return;
 
-        var pendingTransactions = (await _httpClient.GetFromJsonAsync<IEnumerable<UserTransaction>>(
-            $"api/organization/{_self.Organization.OrganizationId}/transactions?status=Pending", _linkedToken))
-            .Where(x => !x.User.UserId.Equals(_self.UserId)).ToArray();
-
-        if (pendingTransactions.Length > 0)
+        try
         {
-            timeLeft = (totalTime - (DateTime.Now - startTime));
-            timeIsUp = timeLeft <= _config.MinDelay || _mode == Mode.BruteForce;
-            delay = timeIsUp ? _config.MinDelay : timeLeft / (_config.Workers.TransactionsToEvaluatePerCycle + 1);
-
-            var counter = 0;
-            foreach (var pt in pendingTransactions)
+            var pendingTransactions = (await _httpClient.GetFromJsonAsync<IEnumerable<UserTransaction>>(
+                $"api/organization/{_self.Organization.OrganizationId}/transactions?status=Pending", _linkedToken))
+                .Where(x => !x.User.UserId.Equals(_self.UserId)).ToArray();
+            
+            if (pendingTransactions.Length > 0)
             {
-                _linkedToken.ThrowIfCancellationRequested();
-                if (!_isActive || counter == _config.Workers.TransactionsToEvaluatePerCycle)
-                    break;
+                timeLeft = (totalTime - (DateTime.Now - startTime));
+                timeIsUp = timeLeft <= _config.MinDelay || _mode == Mode.BruteForce;
+                delay = timeIsUp ? _config.MinDelay : timeLeft / (_config.Workers.TransactionsToEvaluatePerCycle + 1);
 
-                pt.Status = Random.Shared.Next(2) == 0 ? UserTransactionType.Approved.ToString()
-                    : UserTransactionType.Denied.ToString();
+                var counter = 0;
+                foreach (var pt in pendingTransactions)
+                {
+                    if (!ShouldContinue || counter == _config.Workers.TransactionsToEvaluatePerCycle)
+                        break;
 
-                await _httpClient.PutAsJsonAsync<UserTransaction>("api/transaction", pt, _linkedToken);
-                counter++;
+                    pt.Status = Random.Shared.Next(2) == 0 ? UserTransactionType.Approved.ToString()
+                        : UserTransactionType.Denied.ToString();
 
-                await Task.Delay(delay);
+                    await _httpClient.PutAsJsonAsync<UserTransaction>("api/transaction", pt, _linkedToken);
+                    counter++;
 
-                if (counter == _config.Workers.TransactionsToEvaluatePerCycle)
-                    break;
+                    await Task.Delay(delay);
+                }
             }
+        }
+        catch (TaskCanceledException)
+        {
+            return;
         }
 
         var curTime = DateTime.Now - startTime;
@@ -118,9 +131,6 @@ public sealed class Worker : TestWorkerBase
 
     public async Task CompressIntervalsAsync()
     {
-        if (_linkedToken.IsCancellationRequested || !_isActive)
-            return;
-
         var currentInterval = _transactionTimer.Interval;
         var targetInterval = Math.Max(_config.Workers.WorkerTransactionsRoc.MinFrequencySeconds * 1_000D,
             currentInterval - _config.Workers.WorkerTransactionsRoc.AmountToDecreaseMs);
@@ -143,9 +153,8 @@ public sealed class Worker : TestWorkerBase
     {
         if (_isActive)
         {
-            _isActive = false;
             _transactionTimer.Stop();
-            _cts.Cancel();
+            _isActive = false;
         }
     }
 }

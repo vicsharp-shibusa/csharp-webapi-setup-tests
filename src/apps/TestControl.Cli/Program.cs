@@ -33,7 +33,7 @@ class Program
             await SetupTestAsync(args);
 
             /*
-             * Using a separate HttpClient here so as not to skew the average response time results
+             * Using a separate HttpClient here so as not to skew the average response time resultsc
              * (the httpClient that comes from `CreateHttpClientForTests` below
              * has a special handler for recording response times).
              */
@@ -52,44 +52,52 @@ class Program
         catch (TaskCanceledException)
         {
             _exitCode ??= 1;
-            Communicate($"Test was cancelled. {nameof(TaskCanceledException)}");
         }
         catch (OperationCanceledException)
         {
             _exitCode ??= 2;
-            Communicate($"Test was cancelled. {nameof(OperationCanceledException)}");
         }
         catch (AggregateException)
         {
             _exitCode ??= 3;
-            Communicate($"Test was cancelled. {nameof(AggregateException)}");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _exitCode ??= 4;
-            Communicate(ex);
         }
         finally
         {
+            if (_testRunner != null)
+            {
+                lock (_locker)
+                {
+                    _testRunner.Stop();
+                }
+            }
+
             _cts.Cancel();
+
             Communicate($"[{DateTime.Now:HH:mm:ss}] Shutting down.");
+
             TestStatus status = null;
 
             if (_testRunner != null)
             {
-                _testRunner.Stop();
-                using var httpClient = new HttpClient { BaseAddress = new Uri(_config.Api.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(30) };
-                try
+                lock (_locker)
                 {
-                    status = await _testRunner.GetStatusAsync(httpClient);
-                }
-                catch (TaskCanceledException)
-                {
-                    Communicate($"[{DateTime.Now:HH:mm:ss}]]Status fetch timed out.");
-                }
-                catch (Exception exc)
-                {
-                    Console.WriteLine(exc);
+                    using var httpClient = new HttpClient { BaseAddress = new Uri(_config.Api.ApiBaseUrl), Timeout = TimeSpan.FromSeconds(30) };
+                    try
+                    {
+                        status = _testRunner.GetStatusAsync(httpClient).GetAwaiter().GetResult();
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        Communicate($"[{DateTime.Now:HH:mm:ss}]]Status fetch timed out.");
+                    }
+                    catch (Exception exc)
+                    {
+                        Communicate(exc);
+                    }
                 }
             }
 
@@ -111,10 +119,9 @@ class Program
                 var path = Path.Combine(_logFileManager.LogsDirectory,
                     $"{_logFileManager.StartTime:yyyyMMdd}_{_logFileManager.UniqueId}_final.json");
 
-                var t = File.WriteAllTextAsync(path, json);
-                Communicate(status.ToString());
                 Communicate("Writing final JSON file.");
-                await t;
+                await File.WriteAllTextAsync(path, json);
+                Communicate(status.ToString());
             }
 
             ShutdownCleanup();
@@ -362,15 +369,6 @@ class Program
         _cts.Cancel();
 
         Communicate("CTRL+C detected. Shutting down gracefully...");
-
-        Task.Run(async () =>
-        {
-            var t = Task.Delay(Math.Max(0, _config.ShutdownDelayMs));
-            ShutdownCleanup();
-            await t;
-        });
-
-        Environment.Exit(0);
     }
 
     private static void ShutdownCleanup()
