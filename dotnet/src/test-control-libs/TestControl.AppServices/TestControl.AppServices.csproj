@@ -6,6 +6,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\TestControl.Infrastructure\TestControl.Infrastructure.csproj" />
+		<ProjectReference Include="..\TestControl.Infrastructure\TestControl.Infrastructure.csproj" />
 	</ItemGroup>
 </Project>

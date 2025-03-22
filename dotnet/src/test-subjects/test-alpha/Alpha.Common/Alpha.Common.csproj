@@ -6,7 +6,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\TestControl.AppServices\TestControl.AppServices.csproj" />
+		<ProjectReference Include="..\..\..\test-control-libs\TestControl.AppServices\TestControl.AppServices.csproj" />
 	</ItemGroup>
 
 </Project>

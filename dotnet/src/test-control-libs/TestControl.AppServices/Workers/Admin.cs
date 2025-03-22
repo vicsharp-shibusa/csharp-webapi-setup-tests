@@ -218,18 +218,18 @@ public sealed class Admin : TestWorkerBase
 
         if (_users.Count > 0)
         {
-            await Parallel.ForEachAsync(_users, _linkedToken, async (u, token) =>
+            foreach (var user in _users)
             {
                 try
                 {
-                    await _httpClient.PostAsJsonAsync("api/user", u, token);
-                    await Task.Delay(_config.MinDelay, token);
+                    await _httpClient.PostAsJsonAsync("api/user", user, _linkedToken);
+                    await Task.Delay(_config.MinDelay, _linkedToken);
                 }
                 catch (TaskCanceledException)
                 {
-                    
+                    break;
                 }
-            });
+            }
         }
     }
 

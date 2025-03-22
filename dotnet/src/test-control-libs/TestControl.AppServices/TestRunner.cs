@@ -259,6 +259,8 @@ public sealed class TestRunner : IDisposable
         status.MovingAvgResponseTime = _responseTimeHandler.CurrentResponseAverageMs;
         status.ResponseTimeThreshold = _config.ResponseThreshold.AverageResponseTimeThresholdMs;
         status.Status = Status;
+        status.TotalMilliseconds = _responseTimeHandler.TotalMilliseconds;
+        status.NumberCalls = _responseTimeHandler.NumberCalls;
         return status;
     }
 

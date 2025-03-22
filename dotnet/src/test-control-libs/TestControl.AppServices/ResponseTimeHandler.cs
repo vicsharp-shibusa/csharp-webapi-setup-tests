@@ -4,7 +4,7 @@ namespace TestControl.AppServices;
 
 public sealed class ResponseTimeHandler : DelegatingHandler
 {
-    private ulong _totalMilliseconds;
+    private long _totalMilliseconds;
     private readonly Queue<double> _responseTimes;
     private int _numberCalls;          // Total number of calls made by this handler
     private readonly int _maxPeriods;  // Number of values in the moving average
@@ -24,6 +24,8 @@ public sealed class ResponseTimeHandler : DelegatingHandler
     }
 
     public double CurrentResponseAverageMs => _responseTimes.Average();
+    public long TotalMilliseconds => _totalMilliseconds;
+    public int NumberCalls => _numberCalls;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -41,7 +43,7 @@ public sealed class ResponseTimeHandler : DelegatingHandler
         int count;
         lock (_lock)
         {
-            _totalMilliseconds += Convert.ToUInt64(responseTimeMs);
+            _totalMilliseconds += Convert.ToInt64(responseTimeMs);
 
             if (_responseTimes.Count == _maxPeriods)
             {

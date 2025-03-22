@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using TestControl.AppServices;
@@ -14,6 +15,7 @@ class Program
     static int? _exitCode = null;
     static bool _verbose;
     static bool _saveLogs;
+    static bool _showHelp;
     static CancellationTokenSource _cts;
     static TestConfig _config;
     static TestRunner _testRunner;
@@ -22,6 +24,14 @@ class Program
 
     static async Task Main(string[] args)
     {
+        await SetupTestAsync(args);
+
+        if (_showHelp)
+        {
+            ShowHelp();
+            Environment.Exit(0);
+        }
+
         var executionTimer = Stopwatch.StartNew();
 
         Console.CancelKeyPress += HandleShutdown;
@@ -30,8 +40,6 @@ class Program
 
         try
         {
-            await SetupTestAsync(args);
-
             /*
              * Using a separate HttpClient here so as not to skew the average response time resultsc
              * (the httpClient that comes from `CreateHttpClientForTests` below
@@ -203,13 +211,24 @@ class Program
                 case "--verbose":
                     _verbose = true;
                     break;
+                case "-s":
+                case "--save-log":
                 case "--save-logs":
                     _saveLogs = true;
+                    break;
+                case "-h":
+                case "-?":
+                case "?":
+                case "--help":
+                    _showHelp = true;
                     break;
                 default:
                     throw new ArgumentException($"Unknown argument: {args[i]}");
             }
         }
+
+        if (_showHelp)
+            return;
 
         if (_config == null)
             throw new ArgumentException($"Expected a config file to be provided with the -c <file name> argument.");
@@ -377,5 +396,32 @@ class Program
         _logFileManager?.Dispose();
         _testRunner?.Dispose();
         _cts?.Dispose();
+    }
+
+    private static void ShowHelp()
+    {
+        var name = Assembly.GetExecutingAssembly().GetName().Name;
+
+        StringBuilder helpText = new StringBuilder();
+        helpText.AppendLine(name);
+        helpText.AppendLine();
+        helpText.AppendLine($"Usage: {name} [options]");
+        helpText.AppendLine();
+        helpText.AppendLine("Options:");
+        helpText.AppendLine("  -h, -?, ?, --help              Show this help.");
+        helpText.AppendLine("  -c, --config <file path>       Required. Specifies the path to the test configuration JSON file.");
+        helpText.AppendLine("  -l, --logs-directory <dir>     Specifies the directory for saving log files. Enables logging if provided.");
+        helpText.AppendLine("  -v, --verbose                  Enables verbose output, showing detailed messages and errors.");
+        helpText.AppendLine("  -s, --save-log[s]              Enables saving logs to a default directory (logs/<ApiName>/<timestamp>) if no -l is specified.");
+        helpText.AppendLine();
+        helpText.AppendLine("Notes:");
+        helpText.AppendLine("  - A config file must be provided via -c or --config.");
+        helpText.AppendLine("  - Use -v for detailed error messages if the config file fails validation.");
+        helpText.AppendLine("  - Default log location is not recommended for production; use -l instead.");
+        helpText.AppendLine();
+        helpText.AppendLine("Example:");
+        helpText.AppendLine($"  {name} -c ./configs/config.json -l ./logs -v -s");
+
+        Console.WriteLine(helpText.ToString());
     }
 }

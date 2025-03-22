@@ -14,6 +14,10 @@ public record TestStatus
     public double MovingAvgResponseTime { get; set; }
     public double ResponseTimeThreshold { get; set; }
     public MemoryUsage MemoryUsage { get; } = new();
+    public long TotalMilliseconds { get; set; }
+    public int NumberCalls { get; set; }
+    public double CallsPerSecond => NumberCalls / (TotalMilliseconds / 1_000D);
+    public double AverageResponseTime => NumberCalls == 0 ? 0D : TotalMilliseconds / NumberCalls;
     public long TotalServiceInstantiations => ServiceInstantiations.Values.Sum();
     public IDictionary<string, long> ServiceInstantiations { get; init; } = new Dictionary<string, long>();
     public string HealthStatus
@@ -44,19 +48,23 @@ public record TestStatus
         sb.AppendLine($"Status: {Status}");
         sb.AppendLine($"Health Status: {HealthStatus}");
         sb.AppendLine(Divider);
+
         sb.AppendLine("DB Counts:");
         sb.AppendLine(DbCounts.ToString());
         sb.AppendLine(Divider);
+
         sb.AppendLine($"Avg Response Time (ms): {MovingAvgResponseTime:#,##0.00}");
         sb.AppendLine(Divider);
+
         sb.AppendLine("Memory Usage:");
         sb.AppendLine(MemoryUsage.ToString());
         sb.AppendLine(Divider);
+
         sb.AppendLine($"Total Instantiations: {TotalServiceInstantiations}");
         sb.AppendLine($"Instantiations By Type:");
         foreach (var kvp in ServiceInstantiations)
         {
-            sb.AppendLine($"{kvp.Key} : {kvp.Value}");
+            sb.AppendLine($" - {kvp.Key} : {kvp.Value}");
         }
         sb.AppendLine(Boundary);
 
@@ -126,7 +134,7 @@ public record TestStatusCounts
     public long Workers { get; init; }
     public long Organizations { get; init; }
     public long ParentOrganizations { get; init; }
-
+    public long Total => Transactions + Admins + Workers + Organizations + ParentOrganizations;
     public override string ToString()
     {
         StringBuilder sb = new();
@@ -135,6 +143,7 @@ public record TestStatusCounts
         sb.AppendLine($"# Workers       : {Workers}");
         sb.AppendLine($"# Organizations : {Organizations}");
         sb.AppendLine($"# Parent Orgs   : {ParentOrganizations}");
+        sb.AppendLine($"  TOTAL         : {Total}");
         return sb.ToString();
     }
 }

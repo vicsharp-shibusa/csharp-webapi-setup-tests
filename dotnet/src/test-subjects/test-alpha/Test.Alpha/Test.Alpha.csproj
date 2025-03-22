@@ -10,7 +10,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\libs\Alpha.Core\Alpha.Core.csproj" />
+		<ProjectReference Include="..\Alpha.Core\Alpha.Core.csproj" />
 	</ItemGroup>
 
 </Project>
