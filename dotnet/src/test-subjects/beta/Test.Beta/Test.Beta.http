@@ -1,0 +1,55 @@
+@Test.Alpha_HostAddress = http://localhost:5259
+
+GET {{Test.Alpha_HostAddress}}/api/status
+### Test User Endpoints
+
+### Get User by ID
+GET {{Test.Alpha_HostAddress}}/api/users/{{userId}}
+Accept: application/json
+
+### Get User by Email
+GET {{Test.Alpha_HostAddress}}/api/users/by-email?email={{email}}
+Accept: application/json
+
+### Get Users for Customer Organization
+GET {{Test.Alpha_HostAddress}}/api/users/organization/{{customerOrgId}}
+Accept: application/json
+
+### Upsert User
+POST {{Test.Alpha_HostAddress}}/api/users
+Content-Type: application/json
+
+{
+    "userId": "{{userId}}",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "createdAt": "2024-02-20T12:00:00Z",
+    "operationId": "{{operationId}}",
+    "customerOrganization": {
+        "customerOrganizationId": "{{customerOrgId}}",
+        "name": "Example Org",
+        "createdAt": "2024-02-20T12:00:00Z",
+        "operationId": "{{operationId}}"
+    }
+}
+
+### Test Customer Organization Endpoints
+
+### Get Customer Organization by ID
+GET {{Test.Alpha_HostAddress}}/api/customer-organizations/{{customerOrgId}}
+Accept: application/json
+
+### Get All Customer Organizations
+GET {{Test.Alpha_HostAddress}}/api/customer-organizations
+Accept: application/json
+
+### Upsert Customer Organization
+POST {{Test.Alpha_HostAddress}}/api/customer-organizations
+Content-Type: application/json
+
+{
+    "customerOrganizationId": "{{customerOrgId}}",
+    "name": "Example Org",
+    "createdAt": "2024-02-20T12:00:00Z",
+    "operationId": "{{operationId}}"
+}
