@@ -169,8 +169,8 @@ public sealed class Admin : TestWorkerBase
     {
         if (_isActive)
         {
-            _queryTimer.Stop();
             _isActive = false;
+            _queryTimer.Stop();
             Parallel.ForEach(_workers, w => w.Stop());
         }
     }

@@ -35,7 +35,7 @@ public sealed class Worker : TestWorkerBase
         _isActive = true;
         _transactionTimer.Start();
 
-        return (_transactionTimer.Interval > 50) ? RunTransactionsAsync() : Task.CompletedTask;
+        return RunTransactionsAsync();
     }
 
     public async Task RunTransactionsAsync()
@@ -153,8 +153,8 @@ public sealed class Worker : TestWorkerBase
     {
         if (_isActive)
         {
-            _transactionTimer.Stop();
             _isActive = false;
+            _transactionTimer.Stop();
         }
     }
 }

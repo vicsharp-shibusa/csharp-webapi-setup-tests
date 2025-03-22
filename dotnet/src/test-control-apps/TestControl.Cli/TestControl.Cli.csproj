@@ -12,6 +12,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<None Update="configs\test-beta-config.json">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="configs\test-alpha-config.json">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>

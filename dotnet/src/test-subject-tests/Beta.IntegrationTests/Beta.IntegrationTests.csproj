@@ -22,7 +22,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Beta.Repositories\Beta.Repositories.csproj" />
+	  <ProjectReference Include="..\..\test-subjects\beta\Beta.Repositories\Beta.Repositories.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

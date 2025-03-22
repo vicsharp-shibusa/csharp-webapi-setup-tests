@@ -22,7 +22,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Alpha.Repositories\Alpha.Repositories.csproj" />
+		<ProjectReference Include="..\..\test-subjects\alpha\Alpha.Repositories\Alpha.Repositories.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

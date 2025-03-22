@@ -1,9 +1,9 @@
 # C# WebApi Setup Tests
 
-## Current Status 2025-03-21
+## Current Status 2025-03-22
 
-When I set out to make a clone of Test.Alpha for my next test, I found the whole structure to be a bit clunky.
-So I rearranged it a bit and then cloned Test.Alpha as Test.Beta.
+The project structure has been rearranged.
+`dotnet` got its own directory; just thinking ahead.
 
 ```
 |-- README.md
@@ -12,7 +12,7 @@ So I rearranged it a bit and then cloned Test.Alpha as Test.Beta.
 |   |-- db1-mssql-create-tables.sql
 |   |-- db1-mssql-create-users.sql
 |   |-- db1-postgres-create-indexes.sql
-|   |-- db1-postgres-create-tables.sql
+|   |-- db1-postgres-create-tabl.es.sql
 |   `-- db1-postgres-create-users.sql
 |-- dotnet
 |   |-- scripts
@@ -24,6 +24,7 @@ So I rearranged it a bit and then cloned Test.Alpha as Test.Beta.
 |       |       |-- Program.cs
 |       |       |-- Properties
 |       |       |-- TestControl.Cli.csproj
+|       |       |-- configs
 |       |-- test-control-libs
 |       |   |-- TestControl.AppServices
 |       |   |   |-- ResponseTimeHandler.cs
@@ -47,19 +48,32 @@ So I rearranged it a bit and then cloned Test.Alpha as Test.Beta.
 |       |       |-- TestConfigTests.cs
 |       |       |-- TestControl.Infrastructure.Tests.csproj
 |       |       |-- data
+|       |-- test-subject-tests
+|       |   |-- Alpha.IntegrationTests
+|       |   |   |-- Alpha..IntegrationTests.csproj
+|       |   |   |-- OrganizationRepositoryTests.cs
+|       |   |   |-- TestBase.cs
+|       |   |   |-- UserRepositoryTests.cs
+|       |   |   |-- UserTransactionRepositoryTests.cs
+|       |   |   `-- secrets.json
+|       |   `-- Beta.IntegrationTests
+|       |       |-- Beta.IntegrationTests.csproj
+|       |       |-- OrganizationRepositoryTests.cs
+|       |       |-- TestBase.cs
+|       |       |-- UserRepositoryTests.cs
+|       |       |-- UserTransactionRepositoryTests.cs
+|       |       `-- secrets.json
 |       `-- test-subjects
 |           |-- alpha
 |           |   |-- Alpha.Common
 |           |   |-- Alpha.Core
 |           |   |-- Alpha.Repositories
-|           |   |-- Test.Alpha
-|           |   `-- Test.Alpha.IntegrationTests
+|           |   `-- Alpha.WebApi
 |           `-- beta
 |               |-- Beta.Common
 |               |-- Beta.Core
 |               |-- Beta.Repositories
-|               |-- Test.Beta
-|               `-- Test.Beta.IntegrationTests
+|               `-- Beta.WebApi
 ```
 
 ## Quick Start
@@ -217,16 +231,23 @@ For example, in the example above, the average response time of the last `100` r
 
 ## List of Endpoints in the Test Subject API
 
+- [HttpGet("api/organization/{organizationId}/transactions")]
+- [HttpGet("api/user/{userId}/transactions")]
+- [HttpGet("api/name")]
+- [HttpGet("api/org/{organizationId}")]
+- [HttpGet("api/orgs")]
+- [HttpGet("api/status")]
 - [HttpGet("api/user/{userId}")]
 - [HttpGet("api/user/by-email/{email}")]
 - [HttpGet("api/users/by-org/{customerOrgId}")]
-- [HttpPost("api/user")]
+- [HttpPost("api/transaction")]
+- [HttpPost("api/maintenance/reset")]
+- [HttpPost("api/org")]
 - [HttpPost("api/test/initialize")]
 - [HttpPost("api/test/warmup")]
-- [HttpGet("api/status")]
-- [HttpGet("api/name")]
-- [HttpGet("api/org/{customerOrganizationId}")]
-- [HttpPost("api/org")]
+- [HttpPost("api/user")]
+- [HttpPut("api/transaction")]
+- [HttpPut("api/user")]
 
 ## Best Practices
 

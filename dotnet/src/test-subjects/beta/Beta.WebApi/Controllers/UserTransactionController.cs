@@ -22,8 +22,8 @@ public class UserTransactionController : ControllerBase
         _testMetricsService = testMetricsService;
     }
 
-    [HttpPost("/api/transaction")]
-    [HttpPut("/api/transaction")]
+    [HttpPost("api/transaction")]
+    [HttpPut("api/transaction")]
     public async Task<IActionResult> UpsertAsync(UserTransaction transaction)
     {
         if (HttpContext.Request.Method == "PUT")
@@ -35,7 +35,7 @@ public class UserTransactionController : ControllerBase
         return Accepted();
     }
 
-    [HttpGet("/api/organization/{organizationId}/transactions")]
+    [HttpGet("api/organization/{organizationId}/transactions")]
     public async Task<IActionResult> GetForOrg(
         [FromRoute]Guid organizationId,
         [FromQuery] string status = null,
@@ -47,7 +47,7 @@ public class UserTransactionController : ControllerBase
         return Ok(await _reportService.GetTransactionsForOrgAsync(organizationId, start, finish, status));
     }
 
-    [HttpGet("/api/user/{userId}/transactions")]
+    [HttpGet("api/user/{userId}/transactions")]
     public async Task<IActionResult> GetForUser(Guid userId,
         [FromQuery] string status = null,
         [FromQuery] string startTime = null,

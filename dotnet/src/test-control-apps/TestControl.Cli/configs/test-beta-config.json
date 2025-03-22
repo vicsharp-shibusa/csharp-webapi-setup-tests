@@ -1,0 +1,46 @@
+{
+  "mode": "Brute Force",
+  "minDelayMs": 0,
+  "testDurationMinutes": 3,
+  "shutdownDelayMs": 1000,
+  "warmupCycles": 5,
+  "statusCheckIntervalSeconds": 50,
+  "api": {
+    "apiBaseUrl": "https://localhost:5260",
+    "apiName": "Test.Beta",
+    "databaseEngine": "PostgreSQL",
+    "databaseVersion": "db1"
+  },
+  "admins": {
+    "maxAdmins": 500,
+    "initialAdmins": 25,
+    "initialOrgsPerParent": 2,
+    "initialParentOrgsPerAdmin": 1,
+    "initialWorkersPerOrg": 2,
+    "adminGrowthPerAdmin": 2,
+    "adminGrowthCycleTimeLimitSeconds": 5,
+    "adminGrowthCycleFrequencyMs": 2000,
+    "reportsToRunPerCycle": 5,
+    "adminQueryRoc": {
+      "initialFrequencySeconds": 5,
+      "minFrequencySeconds": 1,
+      "frequencyToDecreaseIntervalSeconds": 4,
+      "amountToDecreaseMs": 1200
+    }
+  },
+  "workers": {
+    "transactionsToCreatePerCycle": 10,
+    "transactionsToEvaluatePerCycle": 10,
+    "workerCycleTimeLimitSeconds": 3,
+    "workerTransactionsRoc": {
+      "initialFrequencySeconds": 5,
+      "minFrequencySeconds": 1,
+      "frequencyToDecreaseIntervalSeconds": 8,
+      "amountToDecreaseMs": 1200
+    }
+  },
+  "responseThreshold": {
+    "averageResponseTimePeriod": 100,
+    "averageResponseTimeThresholdMs": 299
+  }
+}

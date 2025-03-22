@@ -2,7 +2,7 @@
   "profiles": {
     "TestControl.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "-v -s -l ./logs -c ./configs/test-alpha-config.json"
+      "commandLineArgs": "-v -s -l ./logs -c ./configs/test-beta-config.json"
     }
   }
 }

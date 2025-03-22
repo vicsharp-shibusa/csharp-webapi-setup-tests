@@ -56,7 +56,7 @@ if (string.IsNullOrWhiteSpace(commandConnectionString) || string.IsNullOrWhiteSp
     throw new InvalidOperationException($"Connection strings for {dbEngine} are missing in configuration json files.");
 }
 
-builder.Services.AddScoped(_ => new DbProperties
+builder.Services.AddTransient(_ => new DbProperties
 {
     DbVersion = dbVersion,
     DbEngine = engine,

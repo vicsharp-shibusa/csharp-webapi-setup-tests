@@ -402,7 +402,7 @@ class Program
     {
         var name = Assembly.GetExecutingAssembly().GetName().Name;
 
-        StringBuilder helpText = new StringBuilder();
+        StringBuilder helpText = new();
         helpText.AppendLine(name);
         helpText.AppendLine();
         helpText.AppendLine($"Usage: {name} [options]");
