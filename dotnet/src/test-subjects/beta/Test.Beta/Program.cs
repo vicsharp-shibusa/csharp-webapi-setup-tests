@@ -77,13 +77,13 @@ builder.Services.AddSingleton<TestMetricsService>();
  * IOperationContext should be scoped in each test subject (e.g., Test.Beta, Test.Charley, etc. etc.)
  */
 builder.Services.AddScoped<IOperationContext, OperationContext>();
-builder.Services.AddScoped<DbMaintenanceService>();
-builder.Services.AddScoped<IReportService, ReportService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IOrganizationService, OrganizationService>();
-builder.Services.AddScoped<IUserTransactionRepository, UserTransactionRepository>();
+builder.Services.AddTransient<DbMaintenanceService>();
+builder.Services.AddTransient<IReportService, ReportService>();
+builder.Services.AddTransient<IUserRepository, UserRepository>();
+builder.Services.AddTransient<IOrganizationRepository, OrganizationRepository>();
+builder.Services.AddTransient<IUserService, UserService>();
+builder.Services.AddTransient<IOrganizationService, OrganizationService>();
+builder.Services.AddTransient<IUserTransactionRepository, UserTransactionRepository>();
 /*  */
 
 builder.Services.AddHttpContextAccessor();

@@ -1,22 +1,66 @@
 # C# WebApi Setup Tests
 
-## Current Status 2025-03-19
+## Current Status 2025-03-21
 
-- This is the most stable version yet.
-The `Test.Alpha` architecture holds up pretty well, except that PostgreSQL can't handle all the concurrent connections I'm throwing at it.
+When I set out to make a clone of Test.Alpha for my next test, I found the whole structure to be a bit clunky.
+So I rearranged it a bit and then cloned Test.Alpha as Test.Beta.
 
-- In "Brute Force" mode, the test eventually fails because the **database can't handle the volume of concurrent connections**.
-I **pulled Dapper** out and rolled my own set of IDbConnection extensions.
-All that follows is related to chasing that rabbit.
-
-- **Made DbProperties disposable.**
-In `Test.Alpha`, the repositories (the data access components) and DbProperties are `Scoped`, therefore the db connections they hold are closed and disposed of at the end of the HttpRequest cycle.
-
-- Increased use of cancellation tokens.
-
-- The current version still **doesn't exit gracefully in all circumstances** - going to tackle that next.
-
-- Added a `deploy.sh` script for publishing release versions of the app to a target directory.
+```
+|-- README.md
+|-- database
+|   |-- db1-mssql-create-indexes.sql
+|   |-- db1-mssql-create-tables.sql
+|   |-- db1-mssql-create-users.sql
+|   |-- db1-postgres-create-indexes.sql
+|   |-- db1-postgres-create-tables.sql
+|   `-- db1-postgres-create-users.sql
+|-- dotnet
+|   |-- scripts
+|   |   `-- deploy.sh
+|   `-- src
+|       |-- WebApiSetupTests.sln
+|       |-- test-control-apps
+|       |   `-- TestControl.Cli
+|       |       |-- Program.cs
+|       |       |-- Properties
+|       |       |-- TestControl.Cli.csproj
+|       |-- test-control-libs
+|       |   |-- TestControl.AppServices
+|       |   |   |-- ResponseTimeHandler.cs
+|       |   |   |-- StartupServices.cs
+|       |   |   |-- TestControl.AppServices.csproj
+|       |   |   |-- TestMeticsService.cs
+|       |   |   |-- TestRunner.cs
+|       |   |   |-- Workers
+|       |   |-- TestControl.Infrastructure
+|       |   |   |-- Constants.cs
+|       |   |   |-- Database
+|       |   |   |-- DbProperties.cs
+|       |   |   |-- Extensions.cs
+|       |   |   |-- FileSystem
+|       |   |   |-- MessageToControlProgram.cs
+|       |   |   |-- SubjectApiPublic
+|       |   |   |-- TestConfig.cs
+|       |   |   |-- TestControl.Infrastructure.csproj
+|       |   |   |-- TestDataCreationService.cs
+|       |   `-- TestControl.Infrastructure.Tests
+|       |       |-- TestConfigTests.cs
+|       |       |-- TestControl.Infrastructure.Tests.csproj
+|       |       |-- data
+|       `-- test-subjects
+|           |-- alpha
+|           |   |-- Alpha.Common
+|           |   |-- Alpha.Core
+|           |   |-- Alpha.Repositories
+|           |   |-- Test.Alpha
+|           |   `-- Test.Alpha.IntegrationTests
+|           `-- beta
+|               |-- Beta.Common
+|               |-- Beta.Core
+|               |-- Beta.Repositories
+|               |-- Test.Beta
+|               `-- Test.Beta.IntegrationTests
+```
 
 ## Quick Start
 
