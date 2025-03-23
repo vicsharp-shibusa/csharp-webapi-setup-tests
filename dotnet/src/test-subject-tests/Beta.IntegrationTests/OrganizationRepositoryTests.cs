@@ -2,7 +2,7 @@
 using Beta.Repositories;
 using TestControl.Infrastructure;
 
-namespace Test.Beta.IntegrationTests;
+namespace Beta.IntegrationTests;
 
 public class OrganizationRepositoryTests : TestBase
 {

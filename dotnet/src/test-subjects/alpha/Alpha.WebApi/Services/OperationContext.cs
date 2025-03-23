@@ -1,6 +1,6 @@
 ﻿using Alpha.Common;
 
-namespace Test.Alpha.Services;
+namespace Alpha.WebApi.Services;
 
 public class OperationContext : IOperationContext
 {

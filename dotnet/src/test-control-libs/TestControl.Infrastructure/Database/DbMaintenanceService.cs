@@ -19,12 +19,23 @@ public class DbMaintenanceService
         _sqlProvider = sqlProvider;
     }
 
-    public Task PurgeDatabase() => _dbProperties.CommandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.DeleteAllData),
+    public async Task PurgeDatabase()
+    {
+        using var commandConnection = _dbProperties.CreateCommandConnection();
+        await commandConnection.ExecuteAsync(_sqlProvider.GetSql(SqlKeys.DeleteAllData),
             commandTimeout: 120);
+        commandConnection.Close();
+    }
 
-    public Task<TestStatusCounts> CountRows() =>
-        _dbProperties.QueryConnection.QueryFirstOrDefaultAsync<TestStatusCounts>(
+    public async Task<TestStatusCounts> CountRows()
+    {
+        using var queryConnection = _dbProperties.CreateQueryConnection();
+        var counts = await queryConnection.QueryFirstOrDefaultAsync<TestStatusCounts>(
             _sqlProvider.GetSql(SqlKeys.GetTableCounts));
+        queryConnection.Close();
+        return counts;
+    }
+
 
     public static bool IsTransientNpgsqlError(NpgsqlException ex)
     {

@@ -2,17 +2,31 @@
 
 ## Current Status 2025-03-22
 
+### New Test Subjects
+
+| Name    | Unique Variable           |
+| ------- | ------------------------- |
+| alpha   | Services are `Scoped`     |
+| beta    | Services are `Transient`  |
+| charley | Services are `Singleton`  |
+
+I had to refactor a handful of things to accommodate charley migrating its DI to `Singleton`.
+Namely, `DbProperties` and `DbMaintenanceService` both required adjustment; they got renamed and then replaced with version that don't require `Scoped` instantiation.
+
+### Restructure
+
 The project structure has been rearranged.
 `dotnet` got its own directory; just thinking ahead.
 
 ```
+.
 |-- README.md
 |-- database
 |   |-- db1-mssql-create-indexes.sql
 |   |-- db1-mssql-create-tables.sql
 |   |-- db1-mssql-create-users.sql
 |   |-- db1-postgres-create-indexes.sql
-|   |-- db1-postgres-create-tabl.es.sql
+|   |-- db1-postgres-create-tables.sql
 |   `-- db1-postgres-create-users.sql
 |-- dotnet
 |   |-- scripts
@@ -56,8 +70,15 @@ The project structure has been rearranged.
 |       |   |   |-- UserRepositoryTests.cs
 |       |   |   |-- UserTransactionRepositoryTests.cs
 |       |   |   `-- secrets.json
-|       |   `-- Beta.IntegrationTests
-|       |       |-- Beta.IntegrationTests.csproj
+|       |   |-- Beta.IntegrationTests
+|       |   |   |-- Beta.IntegrationTests.csproj
+|       |   |   |-- OrganizationRepositoryTests.cs
+|       |   |   |-- TestBase.cs
+|       |   |   |-- UserRepositoryTests.cs
+|       |   |   |-- UserTransactionRepositoryTests.cs
+|       |   |   `-- secrets.json
+|       |   `-- Charley.IntegrationTests
+|       |       |-- Charley.IntegrationTests.csproj
 |       |       |-- OrganizationRepositoryTests.cs
 |       |       |-- TestBase.cs
 |       |       |-- UserRepositoryTests.cs
@@ -69,11 +90,16 @@ The project structure has been rearranged.
 |           |   |-- Alpha.Core
 |           |   |-- Alpha.Repositories
 |           |   `-- Alpha.WebApi
-|           `-- beta
-|               |-- Beta.Common
-|               |-- Beta.Core
-|               |-- Beta.Repositories
-|               `-- Beta.WebApi
+|           |-- beta
+|           |   |-- Beta.Common
+|           |   |-- Beta.Core
+|           |   |-- Beta.Repositories
+|           |   `-- Beta.WebApi
+|           `-- charley
+|               |-- Charley.Common
+|               |-- Charley.Core
+|               |-- Charley.Repositories
+|               `-- Charley.WebApi
 ```
 
 ## Quick Start
@@ -82,7 +108,7 @@ The project structure has been rearranged.
 2. Set up your connection strings for your target api to talk to your database (see below).
 3. Set up your environment variables (see below).
 4. Launch the target API.
-5. Created/edit your configuration file to align with your api. See `src/apps/TestControl.Cli/configs`.
+5. Created/edit your configuration file to align with your api. See `src/test-control-apps/TestControl.Cli/configs`.
 6. Execute the CLI control program.
 
 ### Command
@@ -129,6 +155,7 @@ Mine looks like this:
   }
 }
 ```
+
 The key for each connection string is important.
 It consists of three (3) parts: 1) a "db version," 2) a "db engine," and 3) whether it's intended for commands or queries.
 If you're using MS SQL Server, your keys would be `db1MSSQLCommand` and `db1MSSQLQuery`.
@@ -143,7 +170,7 @@ if the values provided to the control program via the configuration file do not 
 
 ### Configuration File
 
-Take a look at `src/apps/TestControl.Cli/configs` for examples of configuration files.
+Take a look at `src/test-control-apps/TestControl.Cli/configs` for examples of configuration files.
 
 The following snippet shows the configuration elements that must align with your test api.
 
@@ -178,9 +205,9 @@ The name of the project has "csharp" in it, but any technology can be employed f
 The `TestControl.Cli` is the control mechanism.
 It consumes a configuration file that aligns with the `TestConfig` class.
 This configuration drives the target, the scope, and pace of the test.
-You can find sample configuration files in the `src/apps/TestControl.Cli/configs` directory.
+You can find sample configuration files in the `src/test-control-apps/TestControl.Cli/configs` directory.
 
-The web apis being tested are located in the `src/hosts` directory.
+The web apis being tested are located in the `src/test-subjects` directory.
 See notes on the specific tests below.
 
 The test subject apis in this repo do not use any security; there is no authorization component.
@@ -202,16 +229,23 @@ After the _first milestone_ is achieved, both the cycle time (frequency) and the
 
 There is no expected scenario in which any web api architecture can survive the test.
 The point is to finish the test with failure.
+
 There are five ways the test can end:
 
 1. The user hits CTRL-C.
 2. The `testDurationMinutes` time limit is reached (note that a value of `0` here will cause the test to run indefinitely).
-3. The HTTP response time threshold is reached (calls to the api take longer than defined by the configuration).
+3. The HTTP response time threshold is reached (the simple moving average of calls to the api take longer than defined by the configuration).
 4. An individual `Admin` or `Worker` cycle does not complete within its allotted time.
-5. An `Exception` is thrown. The application has zero tolerance for exceptions.
+5. An _unhandled_ `Exception` is thrown.
 
-The test attempts to avoid rapid-fire calls to the API until its required as a result of interval compression.
+In the "Fair" mode, the test attempts to avoid rapid-fire calls to the API until it's required as a result of interval and time allocation compression.
 Up to the _first milestone_, the pace is steady, but the number of `Admin` and `Worker` objects (and their workloads) are increasing according to the values in the configuration file.
+
+In the "Brute Force" mode, the test has some small, built-in constraints, but is essentially rapid-fire.
+In my testing in this mode, failures can often be the result of database concurrent connection failures.
+I'm using PostgreSQL for all my tests up to this point, so I don't know how that problem will manifest with MS Sql Server just yet.
+For now, I'm ignoring that problem because I'm trying to evaluate the top-level architecture performance, namely dependency injection.
+Database performance and configuration is a different dimension for some later cycle.
 
 #### Response Time Threshold
 
@@ -229,7 +263,7 @@ For example, in the example above, the average response time of the last `100` r
 
 ---
 
-## List of Endpoints in the Test Subject API
+## List of Endpoints in the Test Subject API (Alphabetical)
 
 - [HttpGet("api/organization/{organizationId}/transactions")]
 - [HttpGet("api/user/{userId}/transactions")]
@@ -251,4 +285,5 @@ For example, in the example above, the average response time of the last `100` r
 
 ## Best Practices
 
-I recommend restarting the api between tests, otherwise the memory consumption stats may be skewed.
+- I recommend restarting the api between tests, otherwise the memory consumption stats will be skewed.
+- Deleting and re-creating the database between tests is not the worst idea; running one test might cause the db to resize - a problem with which the second contestant does have to deal.

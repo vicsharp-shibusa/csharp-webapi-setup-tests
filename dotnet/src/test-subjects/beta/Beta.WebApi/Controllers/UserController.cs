@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TestControl.AppServices;
 using TestControl.Infrastructure.SubjectApiPublic;
 
-namespace Test.Beta.Controllers;
+namespace Beta.WebApi.Controllers;
 
 [ApiController]
 public class UserController : ControllerBase

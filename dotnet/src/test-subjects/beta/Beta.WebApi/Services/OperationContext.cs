@@ -1,6 +1,6 @@
 ﻿using Beta.Common;
 
-namespace Test.Beta.Services;
+namespace Beta.WebApi.Services;
 
 public class OperationContext : IOperationContext
 {

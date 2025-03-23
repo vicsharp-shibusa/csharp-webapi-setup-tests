@@ -16,7 +16,7 @@ public class UserTransactionRepository : IUserTransactionRepository
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
 
-    public UserTransactionRepository(DbProperties dbProperties,
+    public UserTransactionRepository(DbPropertiesScoped dbProperties,
         SqlProvider sqlProvider,
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
@@ -153,7 +153,7 @@ public class UserTransactionRepository : IUserTransactionRepository
         var orgDict = organizations.ToDictionary(org => org.OrganizationId);
 
         // Map each UserTransactionDao to a UserTransaction DTO
-        var transactionDtos = transactionDaos.Select(dao =>
+        return transactionDaos.Select(dao =>
         {
             // Retrieve the corresponding organization from the dictionary
             if (!orgDict.TryGetValue(dao.OrganizationId, out var organization))
@@ -163,8 +163,6 @@ public class UserTransactionRepository : IUserTransactionRepository
 
             // Call ToDto with the fetched organization and user
             return dao.ToDto(organization, user);
-        }).ToList();
-
-        return transactionDtos;
+        });
     }
 }

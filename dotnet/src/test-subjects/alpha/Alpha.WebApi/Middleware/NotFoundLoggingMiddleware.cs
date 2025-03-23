@@ -1,4 +1,4 @@
-﻿namespace Test.Alpha.Middleware;
+﻿namespace Alpha.WebApi.Middleware;
 
 public class NotFoundLoggingMiddleware
 {

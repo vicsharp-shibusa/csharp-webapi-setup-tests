@@ -13,7 +13,7 @@ public class UserRepository : IUserRepository
     private readonly IDbConnection _queryConnection;
     private readonly SqlProvider _sqlProvider;
 
-    public UserRepository(DbProperties dbProperties,
+    public UserRepository(DbPropertiesScoped dbProperties,
         SqlProvider sqlProvider,
         TestMetricsService testMetricsService)
     {
@@ -86,7 +86,7 @@ public class UserRepository : IUserRepository
 
         await _commandConnection.EnsureOpenConnectionAsync(cancellationToken);
 
-        using (var transaction = await DbProperties.CreateTransactionAsync(_commandConnection, cancellationToken))
+        using (var transaction = await DbPropertiesScoped.CreateTransactionAsync(_commandConnection, cancellationToken))
         {
             try
             {

@@ -5,7 +5,7 @@ using TestControl.Infrastructure;
 using TestControl.Infrastructure.Database;
 using TestControl.Infrastructure.SubjectApiPublic;
 
-namespace Test.Alpha.Controllers;
+namespace Alpha.WebApi.Controllers;
 
 [ApiController]
 public class TestController : ControllerBase
@@ -13,13 +13,13 @@ public class TestController : ControllerBase
     private const string TestName = "Test.Alpha";
     private readonly TestMetricsService _testMetricsService;
     private readonly IUserRepository _userRepository;
-    private readonly DbMaintenanceService _dbMaintenanceService;
+    private readonly DbMaintenanceServiceScoped _dbMaintenanceService;
     private readonly ILogger<TestController> _logger;
 
     public TestController(
         TestMetricsService testMetricsService,
         IUserRepository userRepository,
-        DbMaintenanceService dbMaintenanceService,
+        DbMaintenanceServiceScoped dbMaintenanceService,
         ILogger<TestController> logger)
     {
         _testMetricsService = testMetricsService;

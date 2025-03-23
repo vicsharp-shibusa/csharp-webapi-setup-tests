@@ -5,11 +5,11 @@ using TestControl.AppServices;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.Database;
 
-namespace Test.Beta.IntegrationTests;
+namespace Beta.IntegrationTests;
 
 public abstract class TestBase
 {
-    protected DbProperties DbProperties { get; }
+    protected DbPropertiesScoped DbProperties { get; }
     protected SqlProvider _sqlProvider;
 
     protected TestBase()
@@ -44,7 +44,7 @@ public abstract class TestBase
         var queryConnectionString = configuration.GetConnectionString(queryKey)
                            ?? throw new InvalidOperationException($"Connection string '{queryKey}' not found.");
 
-        DbProperties = new DbProperties()
+        DbProperties = new DbPropertiesScoped()
         {
             DbEngine = dbEngine,
             CommandConnection = dbEngine == DbEngine.MSSQL

@@ -9,7 +9,7 @@ namespace Test.Alpha.IntegrationTests;
 
 public abstract class TestBase
 {
-    protected DbProperties DbProperties { get; }
+    protected DbPropertiesScoped DbProperties { get; }
     protected SqlProvider _sqlProvider;
 
     protected TestBase()
@@ -44,7 +44,7 @@ public abstract class TestBase
         var queryConnectionString = configuration.GetConnectionString(queryKey)
                            ?? throw new InvalidOperationException($"Connection string '{queryKey}' not found.");
 
-        DbProperties = new DbProperties()
+        DbProperties = new DbPropertiesScoped()
         {
             DbEngine = dbEngine,
             CommandConnection = dbEngine == DbEngine.MSSQL

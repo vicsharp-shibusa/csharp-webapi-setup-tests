@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TestControl.AppServices;
 using TestControl.Infrastructure.SubjectApiPublic;
 
-namespace Test.Alpha.Controllers;
+namespace Alpha.WebApi.Controllers;
 
 [ApiController]
 public class OrganizationController : ControllerBase

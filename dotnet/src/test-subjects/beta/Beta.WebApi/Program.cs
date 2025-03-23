@@ -1,11 +1,11 @@
 ﻿using Beta.Common;
 using Beta.Core;
 using Beta.Repositories;
+using Beta.WebApi.Middleware;
+using Beta.WebApi.Services;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Data.SqlClient;
 using Npgsql;
-using Test.Beta.Middleware;
-using Test.Beta.Services;
 using TestControl.AppServices;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.Database;
@@ -56,7 +56,7 @@ if (string.IsNullOrWhiteSpace(commandConnectionString) || string.IsNullOrWhiteSp
     throw new InvalidOperationException($"Connection strings for {dbEngine} are missing in configuration json files.");
 }
 
-builder.Services.AddTransient(_ => new DbProperties
+builder.Services.AddTransient(_ => new DbPropertiesScoped
 {
     DbVersion = dbVersion,
     DbEngine = engine,
@@ -72,12 +72,13 @@ builder.Services.AddControllers();
 
 builder.Services.AddSingleton<TestMetricsService>();
 
+builder.Services.AddScoped<IOperationContext, OperationContext>();
+
 /*
  * Start tested services; these are central to the test.
  * IOperationContext should be scoped in each test subject (e.g., Test.Beta, Test.Charley, etc. etc.)
  */
-builder.Services.AddScoped<IOperationContext, OperationContext>();
-builder.Services.AddTransient<DbMaintenanceService>();
+builder.Services.AddTransient<DbMaintenanceServiceScoped>();
 builder.Services.AddTransient<IReportService, ReportService>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
 builder.Services.AddTransient<IOrganizationRepository, OrganizationRepository>();

@@ -14,7 +14,7 @@ public class OrganizationRepository : IOrganizationRepository
     private readonly DbEngine _dbEngine;
     private readonly SqlProvider _sqlProvider;
 
-    public OrganizationRepository(DbProperties dbProperties, SqlProvider sqlProvider, TestMetricsService testMetricsService)
+    public OrganizationRepository(DbPropertiesScoped dbProperties, SqlProvider sqlProvider, TestMetricsService testMetricsService)
     {
         testMetricsService?.IncrementClassInstantiation(nameof(OrganizationRepository));
         _commandConnection = dbProperties.CommandConnection;

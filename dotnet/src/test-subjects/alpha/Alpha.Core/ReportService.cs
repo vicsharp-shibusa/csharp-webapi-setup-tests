@@ -21,17 +21,17 @@ public class ReportService : BaseService, IReportService
         _organizationRepository = organizationRepository;
     }
 
-    public async Task<IEnumerable<Organization>> GetAllOrgsAsync()
+    public Task<IEnumerable<Organization>> GetAllOrgsAsync()
     {
-        return await _organizationRepository.GetAllOrgsAsync();
+        return _organizationRepository.GetAllOrgsAsync();
     }
 
-    public async Task<IEnumerable<User>> GetUsersForOrgAsync(Guid orgId)
+    public Task<IEnumerable<User>> GetUsersForOrgAsync(Guid orgId)
     {
-        return await _userRepository.GetForCustomerOrganizationAsync(orgId);
+        return _userRepository.GetForCustomerOrganizationAsync(orgId);
     }
 
-    public async Task<IEnumerable<UserTransaction>> GetTransactionsForOrgAsync(Guid orgId, DateTime? start = null, DateTime? finish = null, string status = null)
+    public Task<IEnumerable<UserTransaction>> GetTransactionsForOrgAsync(Guid orgId, DateTime? start = null, DateTime? finish = null, string status = null)
     {
         // Set default date range if not provided
         start ??= DateTime.Now.AddMinutes(-15);
@@ -43,7 +43,7 @@ public class ReportService : BaseService, IReportService
             (start, finish) = (finish, start);
         }
 
-        return await _userTransactionRepository.GetTransactionsForOrganizationAsync(orgId, start.Value, finish.Value, status);
+        return _userTransactionRepository.GetTransactionsForOrganizationAsync(orgId, start.Value, finish.Value, status);
     }
 
     public async Task<IEnumerable<UserTransaction>> GetTransactionsForUserAsync(Guid userId, DateTime? start = null, DateTime? finish = null, string status = null)
@@ -56,20 +56,6 @@ public class ReportService : BaseService, IReportService
         if (finish < start)
         {
             (start, finish) = (finish, start);
-        }
-
-        // Fetch the user
-        var user = await _userRepository.GetByIdAsync(userId);
-        if (user == null)
-        {
-            throw new ArgumentException($"User with ID {userId} not found.");
-        }
-
-        // Fetch the user's organization
-        var organization = await _organizationRepository.GetOrganizationForUserAsync(userId);
-        if (organization == null)
-        {
-            throw new InvalidOperationException($"No organization found for user {userId}");
         }
 
         // Fetch transactions from the repository

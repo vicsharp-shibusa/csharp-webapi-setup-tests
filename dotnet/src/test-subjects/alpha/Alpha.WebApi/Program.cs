@@ -1,11 +1,11 @@
 ﻿using Alpha.Common;
 using Alpha.Core;
 using Alpha.Repositories;
+using Alpha.WebApi.Middleware;
+using Alpha.WebApi.Services;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Data.SqlClient;
 using Npgsql;
-using Test.Alpha.Middleware;
-using Test.Alpha.Services;
 using TestControl.AppServices;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.Database;
@@ -56,7 +56,7 @@ if (string.IsNullOrWhiteSpace(commandConnectionString) || string.IsNullOrWhiteSp
     throw new InvalidOperationException($"Connection strings for {dbEngine} are missing in configuration json files.");
 }
 
-builder.Services.AddScoped(_ => new DbProperties
+builder.Services.AddScoped(_ => new DbPropertiesScoped
 {
     DbVersion = dbVersion,
     DbEngine = engine,
@@ -70,14 +70,15 @@ builder.Services.AddScoped(_ => new DbProperties
 
 builder.Services.AddControllers();
 
+builder.Services.AddScoped<IOperationContext, OperationContext>();
+
 builder.Services.AddSingleton<TestMetricsService>();
 
 /*
  * Start tested services; these are central to the test.
  * IOperationContext should be scoped in each test subject (e.g., Test.Beta, Test.Charley, etc. etc.)
  */
-builder.Services.AddScoped<IOperationContext, OperationContext>();
-builder.Services.AddScoped<DbMaintenanceService>();
+builder.Services.AddScoped<DbMaintenanceServiceScoped>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();

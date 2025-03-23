@@ -4,7 +4,7 @@ using System.Diagnostics;
 using TestControl.AppServices;
 using TestControl.Infrastructure.SubjectApiPublic;
 
-namespace Test.Beta.Controllers;
+namespace Beta.WebApi.Controllers;
 
 [ApiController]
 public class UserTransactionController : ControllerBase
@@ -88,7 +88,7 @@ public class UserTransactionController : ControllerBase
             finish = new DateTime(Math.Min(DateTime.Now.Ticks, start.Value.Ticks));
         }
 
-        Debug.Assert((finish.HasValue && start.HasValue) || (!finish.HasValue && !start.HasValue));
+        Debug.Assert(finish.HasValue && start.HasValue || !finish.HasValue && !start.HasValue);
 
         if (finish < start)
         {

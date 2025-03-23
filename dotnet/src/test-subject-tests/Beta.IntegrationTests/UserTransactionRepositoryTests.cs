@@ -3,7 +3,7 @@ using Beta.Repositories;
 using TestControl.Infrastructure;
 using TestControl.Infrastructure.SubjectApiPublic;
 
-namespace Test.Beta.IntegrationTests;
+namespace Beta.IntegrationTests;
 
 public class UserTransactionRepositoryTests : TestBase
 {
